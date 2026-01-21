@@ -199,27 +199,35 @@ public final class JsInjectorFixed {
             "updateTransform();" +
             "}" +
             
-            "function findListingImages() {" +
-            "var images = []; var allImages = document.querySelectorAll('img');" +
-            "for (var i = 0; i < allImages.length; i++) {" +
-            "var img = allImages[i];" +
-            "if (img.width >= 100 && img.height >= 100 && img.src.includes('scontent')) { images.push(img.src.split('?')[0]); }" +
+            "function findListingImages(clickedImg) {" +
+            "var images = [];" +
+            "var carousel = clickedImg.closest('[role=\"listbox\"], [data-visualcompletion=\"media-vc-image\"]');" +
+            "if (!carousel) { carousel = clickedImg.closest('div[class]'); while (carousel && carousel.querySelectorAll('img').length < 2 && carousel.parentElement) { carousel = carousel.parentElement; } }" +
+            "var searchArea = carousel || clickedImg.parentElement;" +
+            "if (searchArea) {" +
+            "var imgs = searchArea.querySelectorAll('img');" +
+            "for (var i = 0; i < imgs.length; i++) {" +
+            "var img = imgs[i];" +
+            "if (img.src && img.src.includes('scontent') && img.width >= 50) {" +
+            "var src = img.src.split('?')[0];" +
+            "if (images.indexOf(src) === -1) images.push(src);" +
             "}" +
-            "return [...new Set(images)].slice(0, 15);" +
+            "}" +
+            "}" +
+            "if (images.length === 0) { images.push(clickedImg.src.split('?')[0]); }" +
+            "return images;" +
             "}" +
             
             "document.addEventListener('click', function(e) {" +
             "var img = e.target.closest('img');" +
-            "if (img && img.src && img.src.includes('scontent') && img.width >= 100) {" +
+            "if (img && img.src && img.src.includes('scontent') && img.width >= 50) {" +
             "var url = window.location.href;" +
             "if (url.includes('/marketplace/item/') || url.includes('/product/')) {" +
             "e.preventDefault(); e.stopPropagation();" +
-            "var images = findListingImages();" +
-            "if (images.length > 0) {" +
+            "var images = findListingImages(img);" +
             "var clickedSrc = img.src.split('?')[0];" +
             "var index = images.indexOf(clickedSrc); if (index === -1) index = 0;" +
             "showImageViewer(images, index);" +
-            "}" +
             "return false;" +
             "}" +
             "}" +
