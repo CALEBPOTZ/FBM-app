@@ -203,53 +203,30 @@ public final class JsInjectorFixed {
             "var images = [];" +
             "console.log('Finding listing images...');" +
             
-            // Method 1: Look for all scontent images in the main listing area
-            "var mainContent = document.querySelector('[role=\"main\"]') || document.body;" +
-            "var allImgs = mainContent.querySelectorAll('img[src*=\"scontent\"]');" +
-            "console.log('Found ' + allImgs.length + ' scontent images');" +
-            
-            // Filter to likely listing images (larger ones, not profile pics/icons)
-            "for (var i = 0; i < allImgs.length; i++) {" +
-            "var img = allImgs[i];" +
-            "var dominated = img.closest('[data-pagelet*=\"FeedUnit\"], [data-pagelet*=\"Related\"]');" +
-            "if (dominated) continue;" + // Skip images in related listings
-            "var rect = img.getBoundingClientRect();" +
-            "if (rect.width >= 100 || img.naturalWidth >= 100) {" +
-            "var src = img.src;" +
-            // Get highest resolution version
-            "src = src.replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
-            "if (images.indexOf(src) === -1) {" +
-            "images.push(src);" +
-            "console.log('Added image: ' + src.substring(0, 60) + '...');" +
-            "}" +
-            "}" +
+            // Just use the clicked image's source directly
+            "if (clickedImg.src) {" +
+            "images.push(clickedImg.src);" +
+            "console.log('Added clicked image: ' + clickedImg.src.substring(0, 80));" +
             "}" +
             
-            // Method 2: Look for image URLs in data attributes and background images
-            "if (images.length < 2) {" +
-            "var elements = mainContent.querySelectorAll('[style*=\"background-image\"], [data-src*=\"scontent\"]');" +
-            "for (var j = 0; j < elements.length; j++) {" +
-            "var el = elements[j];" +
-            "var bgImg = el.style.backgroundImage;" +
-            "if (bgImg && bgImg.includes('scontent')) {" +
-            "var match = bgImg.match(/url\\([\"']?([^\"')]+)[\"']?\\)/);" +
-            "if (match && match[1]) {" +
-            "var src = match[1].replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
-            "if (images.indexOf(src) === -1) images.push(src);" +
-            "}" +
-            "}" +
-            "var dataSrc = el.getAttribute('data-src');" +
-            "if (dataSrc && dataSrc.includes('scontent')) {" +
-            "var src = dataSrc.replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
-            "if (images.indexOf(src) === -1) images.push(src);" +
-            "}" +
-            "}" +
+            // Look for other images in the same carousel/container
+            "var container = clickedImg.parentElement;" +
+            "for (var i = 0; i < 5 && container; i++) {" +
+            "container = container.parentElement;" +
             "}" +
             
-            // Fallback: just use the clicked image
-            "if (images.length === 0) {" +
-            "var src = clickedImg.src.replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
-            "images.push(src);" +
+            "if (container) {" +
+            "var allImgs = container.querySelectorAll('img');" +
+            "console.log('Found ' + allImgs.length + ' images in container');" +
+            "for (var j = 0; j < allImgs.length; j++) {" +
+            "var img = allImgs[j];" +
+            "if (img.src && img.src.includes('scontent') && img.width >= 50) {" +
+            "if (images.indexOf(img.src) === -1) {" +
+            "images.push(img.src);" +
+            "console.log('Added image: ' + img.src.substring(0, 80));" +
+            "}" +
+            "}" +
+            "}" +
             "}" +
             
             "console.log('Total images found: ' + images.length);" +
@@ -263,8 +240,7 @@ public final class JsInjectorFixed {
             "if (url.includes('/marketplace/item/') || url.includes('/product/')) {" +
             "e.preventDefault(); e.stopPropagation();" +
             "var images = findListingImages(img);" +
-            "var clickedSrc = img.src.replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
-            "var index = images.indexOf(clickedSrc); if (index === -1) index = 0;" +
+            "var index = images.indexOf(img.src); if (index === -1) index = 0;" +
             "showImageViewer(images, index);" +
             "return false;" +
             "}" +
