@@ -28,6 +28,17 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
+    - name: Set version with timestamp
+      id: version
+      run: |
+        VERSION="1.0.0-$(date +'%Y%m%d-%H%M%S')"
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
+        echo "DATE=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+        # Update version in build.gradle.kts
+        sed -i "s/versionName = \".*\"/versionName = \"$VERSION\"/" app/build.gradle.kts
+        cat app/build.gradle.kts | grep versionName
+    
     - name: Build with Gradle
       run: ./gradlew assembleDebug
     
@@ -49,6 +60,11 @@ jobs:
         name: app-release-unsigned
         path: app/build/outputs/apk/release/app-release-unsigned.apk
         retention-days: 30
+    
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      tag: ${{ steps.version.outputs.TAG }}
+      date: ${{ steps.version.outputs.DATE }}
 
   release:
     needs: build
@@ -65,21 +81,16 @@ jobs:
         name: app-debug
         path: ./artifacts
     
-    - name: Get version info
-      id: version
-      run: |
-        echo "VERSION=v1.0.0-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
-        echo "DATE=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
-    
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ steps.version.outputs.VERSION }}
-        name: Facebook Marketplace Viewer ${{ steps.version.outputs.VERSION }}
+        tag_name: ${{ needs.build.outputs.tag }}
+        name: Facebook Marketplace Viewer ${{ needs.build.outputs.tag }}
         body: |
           ## Facebook Marketplace Viewer
           
-          **Build Date**: ${{ steps.version.outputs.DATE }}
+          **Version**: ${{ needs.build.outputs.version }}
+          **Build Date**: ${{ needs.build.outputs.date }}
           **Commit**: ${{ github.sha }}
           
           ### Features
@@ -88,6 +99,7 @@ jobs:
           - ✅ Search with Enter key support
           - ✅ Fixed textarea overflow in forms
           - ✅ Clean UI without Facebook bloat
+          - ✅ Auto-update checker (notifies you of new versions)
           
           ### Installation
           1. Download `app-debug.apk` below

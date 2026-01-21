@@ -21,6 +21,7 @@ import com.marketplace.viewer.config.UrlConfig;
 import com.marketplace.viewer.databinding.ActivityMainBinding;
 import com.marketplace.viewer.injection.JsInjectorFixed;
 import com.marketplace.viewer.messenger.MessengerDeepLinker;
+import com.marketplace.viewer.update.UpdateChecker;
 import com.marketplace.viewer.webview.MarketplaceWebChromeClient;
 import com.marketplace.viewer.webview.MarketplaceWebViewClient;
 
@@ -35,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
     private CustomTabsAuthLauncher customTabsLauncher;
     private MessengerDeepLinker messengerDeepLinker;
     private JsInjectorFixed jsInjector;
+    private UpdateChecker updateChecker;
     private ValueCallback<Uri[]> filePathCallback;
     private ActivityResultLauncher<String> filePickerLauncher;
 
@@ -67,6 +69,10 @@ public class MainActivity extends AppCompatActivity {
         
         // Load marketplace
         checkAuthAndLoad();
+        
+        // Check for updates
+        updateChecker = new UpdateChecker(this);
+        updateChecker.checkForUpdates();
     }
 
     private void handleFilePickerResult(List<Uri> uris) {
