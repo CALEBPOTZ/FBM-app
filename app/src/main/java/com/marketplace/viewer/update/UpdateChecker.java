@@ -40,19 +40,28 @@ public class UpdateChecker {
     }
 
     public void checkForUpdates() {
+        checkForUpdates(false);
+    }
+    
+    public void checkForUpdates(boolean force) {
         // Check if we should skip this check (too recent)
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         long lastCheck = prefs.getLong(KEY_LAST_CHECK, 0);
-        if (System.currentTimeMillis() - lastCheck < CHECK_INTERVAL) {
+        
+        if (!force && System.currentTimeMillis() - lastCheck < CHECK_INTERVAL) {
             Log.d(TAG, "Skipping update check - too recent");
             return;
         }
+        
+        Log.d(TAG, "Checking for updates... Current version: " + BuildConfig.VERSION_NAME);
 
         executor.execute(() -> {
             try {
                 String response = fetchLatestRelease();
                 if (response != null) {
                     parseAndCheckVersion(response, prefs);
+                } else {
+                    Log.e(TAG, "Failed to fetch latest release");
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error checking for updates", e);
@@ -112,12 +121,13 @@ public class UpdateChecker {
 
             // Compare versions
             String currentVersion = BuildConfig.VERSION_NAME;
-            Log.d(TAG, "Current version: " + currentVersion + ", Latest: " + tagName);
+            Log.d(TAG, "Current version: " + currentVersion + ", Latest tag: " + tagName);
 
             // Extract version numbers for comparison
             // Tag format: v1.0.0-20260121-090833
-            // Current format: 1.0.0-build123 or just 1.0.0
+            // Current format: 1.0.0-20260121-090833 or just 1.0.0
             String latestVersion = tagName.startsWith("v") ? tagName.substring(1) : tagName;
+            Log.d(TAG, "Parsed latest version: " + latestVersion);
             
             // Check if this version was skipped
             String skippedVersion = prefs.getString(KEY_SKIPPED_VERSION, "");
@@ -127,7 +137,10 @@ public class UpdateChecker {
             }
 
             // Compare - if latest contains a timestamp that's different, it's newer
-            if (!latestVersion.equals(currentVersion) && isNewer(latestVersion, currentVersion)) {
+            boolean isUpdateAvailable = !latestVersion.equals(currentVersion) && isNewer(latestVersion, currentVersion);
+            Log.d(TAG, "Update available: " + isUpdateAvailable);
+            
+            if (isUpdateAvailable) {
                 String finalDownloadUrl = downloadUrl;
                 mainHandler.post(() -> showUpdateDialog(latestVersion, releaseName, htmlUrl, finalDownloadUrl, prefs));
             }
@@ -141,10 +154,17 @@ public class UpdateChecker {
     }
 
     private boolean isNewer(String latest, String current) {
-        // Simple comparison - if they're different and latest has a timestamp, assume newer
-        // Format: 1.0.0-20260121-090833
+        Log.d(TAG, "Comparing versions - Latest: " + latest + ", Current: " + current);
+        
+        // If versions are exactly equal, not newer
+        if (latest.equals(current)) {
+            Log.d(TAG, "Versions are equal");
+            return false;
+        }
+        
         try {
             // Extract timestamp from latest (if present)
+            // Format: 1.0.0-20260121-090833
             if (latest.contains("-")) {
                 String[] latestParts = latest.split("-");
                 if (latestParts.length >= 2) {
@@ -155,15 +175,19 @@ public class UpdateChecker {
                         String[] currentParts = current.split("-");
                         if (currentParts.length >= 2) {
                             String currentTimestamp = currentParts[1];
-                            return latestTimestamp.compareTo(currentTimestamp) > 0;
+                            boolean newer = latestTimestamp.compareTo(currentTimestamp) > 0;
+                            Log.d(TAG, "Timestamp comparison: " + latestTimestamp + " vs " + currentTimestamp + " = " + newer);
+                            return newer;
                         }
                     }
-                    // Current doesn't have timestamp, so latest with timestamp is newer
+                    // Current doesn't have timestamp (e.g., "1.0.0"), so any timestamped version is newer
+                    Log.d(TAG, "Current has no timestamp, latest is newer");
                     return true;
                 }
             }
             
             // Fall back to simple string comparison
+            Log.d(TAG, "Falling back to string comparison");
             return !latest.equals(current);
         } catch (Exception e) {
             Log.e(TAG, "Error comparing versions", e);
