@@ -201,31 +201,69 @@ public final class JsInjectorFixed {
             
             "function findListingImages(clickedImg) {" +
             "var images = [];" +
-            "var carousel = clickedImg.closest('[role=\"listbox\"], [data-visualcompletion=\"media-vc-image\"]');" +
-            "if (!carousel) { carousel = clickedImg.closest('div[class]'); while (carousel && carousel.querySelectorAll('img').length < 2 && carousel.parentElement) { carousel = carousel.parentElement; } }" +
-            "var searchArea = carousel || clickedImg.parentElement;" +
-            "if (searchArea) {" +
-            "var imgs = searchArea.querySelectorAll('img');" +
-            "for (var i = 0; i < imgs.length; i++) {" +
-            "var img = imgs[i];" +
-            "if (img.src && img.src.includes('scontent') && img.width >= 50) {" +
-            "var src = img.src.split('?')[0];" +
+            "console.log('Finding listing images...');" +
+            
+            // Method 1: Look for all scontent images in the main listing area
+            "var mainContent = document.querySelector('[role=\"main\"]') || document.body;" +
+            "var allImgs = mainContent.querySelectorAll('img[src*=\"scontent\"]');" +
+            "console.log('Found ' + allImgs.length + ' scontent images');" +
+            
+            // Filter to likely listing images (larger ones, not profile pics/icons)
+            "for (var i = 0; i < allImgs.length; i++) {" +
+            "var img = allImgs[i];" +
+            "var dominated = img.closest('[data-pagelet*=\"FeedUnit\"], [data-pagelet*=\"Related\"]');" +
+            "if (dominated) continue;" + // Skip images in related listings
+            "var rect = img.getBoundingClientRect();" +
+            "if (rect.width >= 100 || img.naturalWidth >= 100) {" +
+            "var src = img.src;" +
+            // Get highest resolution version
+            "src = src.replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
+            "if (images.indexOf(src) === -1) {" +
+            "images.push(src);" +
+            "console.log('Added image: ' + src.substring(0, 60) + '...');" +
+            "}" +
+            "}" +
+            "}" +
+            
+            // Method 2: Look for image URLs in data attributes and background images
+            "if (images.length < 2) {" +
+            "var elements = mainContent.querySelectorAll('[style*=\"background-image\"], [data-src*=\"scontent\"]');" +
+            "for (var j = 0; j < elements.length; j++) {" +
+            "var el = elements[j];" +
+            "var bgImg = el.style.backgroundImage;" +
+            "if (bgImg && bgImg.includes('scontent')) {" +
+            "var match = bgImg.match(/url\\([\"']?([^\"')]+)[\"']?\\)/);" +
+            "if (match && match[1]) {" +
+            "var src = match[1].replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
+            "if (images.indexOf(src) === -1) images.push(src);" +
+            "}" +
+            "}" +
+            "var dataSrc = el.getAttribute('data-src');" +
+            "if (dataSrc && dataSrc.includes('scontent')) {" +
+            "var src = dataSrc.replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
             "if (images.indexOf(src) === -1) images.push(src);" +
             "}" +
             "}" +
             "}" +
-            "if (images.length === 0) { images.push(clickedImg.src.split('?')[0]); }" +
+            
+            // Fallback: just use the clicked image
+            "if (images.length === 0) {" +
+            "var src = clickedImg.src.replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
+            "images.push(src);" +
+            "}" +
+            
+            "console.log('Total images found: ' + images.length);" +
             "return images;" +
             "}" +
             
             "document.addEventListener('click', function(e) {" +
             "var img = e.target.closest('img');" +
-            "if (img && img.src && img.src.includes('scontent') && img.width >= 50) {" +
+            "if (img && img.src && img.src.includes('scontent')) {" +
             "var url = window.location.href;" +
             "if (url.includes('/marketplace/item/') || url.includes('/product/')) {" +
             "e.preventDefault(); e.stopPropagation();" +
             "var images = findListingImages(img);" +
-            "var clickedSrc = img.src.split('?')[0];" +
+            "var clickedSrc = img.src.replace(/\\/[sp]\\d+x\\d+\\//g, '/').replace(/\\?.*$/, '');" +
             "var index = images.indexOf(clickedSrc); if (index === -1) index = 0;" +
             "showImageViewer(images, index);" +
             "return false;" +
