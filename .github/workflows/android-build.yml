@@ -39,6 +39,11 @@ jobs:
         sed -i "s/versionName = \".*\"/versionName = \"$VERSION\"/" app/build.gradle.kts
         cat app/build.gradle.kts | grep versionName
     
+    - name: Setup signing key
+      run: |
+        echo "${{ secrets.DEBUG_KEYSTORE }}" | base64 -d > app/debug.keystore
+        ls -la app/debug.keystore
+    
     - name: Build with Gradle
       run: ./gradlew assembleDebug
     

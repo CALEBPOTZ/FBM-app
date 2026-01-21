@@ -82,3 +82,7 @@ lint-baseline.xml
 # Backup files
 *.bak
 *~
+
+# Keystore files
+*.keystore
+*.keystore.base64

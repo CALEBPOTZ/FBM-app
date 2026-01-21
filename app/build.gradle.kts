@@ -7,6 +7,18 @@ android {
     namespace = "com.marketplace.viewer"
     compileSdk = 34
 
+    signingConfigs {
+        getByName("debug") {
+            val keystoreFile = file("debug.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.marketplace.viewer"
         minSdk = 26
