@@ -20,7 +20,6 @@ public final class JsInjectorFixed {
         injectImageEnhancements();
         injectSearchEnterKey();
         injectTextareaFix();
-        injectScrollFix();
         injectScrollToTop();
         injectSideNavigation();
     }
@@ -39,24 +38,6 @@ public final class JsInjectorFixed {
             "[data-testid*=\"app-banner\"], [data-testid*=\"download-banner\"] { display: none !important; }" +
             "[aria-label*=\"Create post\"], [aria-label*=\"Create a post\"], [aria-label*=\"Stories\"] { display: none !important; }" +
             "body { background-color: #f0f2f5 !important; }" +
-            // Fix scroll issues on listing detail pages
-            "html, body { " +
-            "height: auto !important; min-height: 100% !important; " +
-            "overflow-y: auto !important; overflow-x: hidden !important; " +
-            "-webkit-overflow-scrolling: touch !important; " +
-            "}" +
-            // Ensure main content areas can scroll
-            "[role=\"main\"], [data-pagelet=\"MainFeed\"], [data-pagelet=\"root\"] { " +
-            "overflow: visible !important; height: auto !important; " +
-            "}" +
-            // Fix for listing detail page containers
-            "[data-pagelet*=\"Marketplace\"], [data-pagelet*=\"marketplace\"] { " +
-            "overflow: visible !important; height: auto !important; " +
-            "}" +
-            // Ensure no fixed height containers block scrolling
-            "div[style*=\"overflow: hidden\"][style*=\"height\"] { " +
-            "overflow: visible !important; height: auto !important; " +
-            "}" +
             "`;" +
             "if (!document.getElementById('marketplace-enhancements')) {" +
             "document.head.appendChild(style);" +
@@ -92,6 +73,7 @@ public final class JsInjectorFixed {
     private void injectImageEnhancements() {
         Log.d(TAG, "Injecting image enhancements");
         String script = "(function() {" +
+            "try {" +
             "if (window._imageEnhancementsAdded) return;" +
             "window._imageEnhancementsAdded = true;" +
             "console.log('Image enhancements loading...');" +
@@ -104,11 +86,11 @@ public final class JsInjectorFixed {
             "width: 100vw !important; height: 100vh !important;" +
             "background: rgba(0, 0, 0, 0.95) !important; z-index: 999999 !important;" +
             "display: flex !important; align-items: center !important; justify-content: center !important;" +
-            "overflow: hidden !important;" +
+            "overflow: hidden !important; touch-action: none !important;" +
             "}" +
             ".marketplace-image-viewer img {" +
             "max-width: 95vw !important; max-height: 95vh !important;" +
-            "object-fit: contain !important; transition: transform 0.2s ease !important;" +
+            "object-fit: contain !important; touch-action: none !important;" +
             "}" +
             ".marketplace-image-viewer-close {" +
             "position: absolute !important; top: 20px !important; right: 20px !important;" +
@@ -123,152 +105,181 @@ public final class JsInjectorFixed {
             "background: rgba(0,0,0,0.5) !important; padding: 8px 16px !important;" +
             "border-radius: 20px !important; font-size: 14px !important; z-index: 1000000 !important;" +
             "}" +
-            ".marketplace-nav-button {" +
+            ".marketplace-image-nav-button {" +
             "position: absolute !important; top: 50% !important; transform: translateY(-50%) !important;" +
             "width: 50px !important; height: 50px !important;" +
             "background: rgba(255, 255, 255, 0.3) !important; border-radius: 50% !important;" +
             "display: flex !important; align-items: center !important; justify-content: center !important;" +
             "cursor: pointer !important; font-size: 30px !important; color: white !important; z-index: 1000000 !important;" +
             "}" +
-            ".marketplace-nav-left { left: 20px !important; }" +
-            ".marketplace-nav-right { right: 20px !important; }" +
+            ".marketplace-image-nav-left { left: 20px !important; }" +
+            ".marketplace-image-nav-right { right: 20px !important; }" +
             "`;" +
             "if (!document.getElementById('marketplace-image-enhancements')) {" +
             "document.head.appendChild(imageStyle);" +
             "}" +
             
-            "var currentImages = []; var currentIndex = 0; var imageViewer = null;" +
-            "var scale = 1; var translateX = 0; var translateY = 0;" +
-            "var lastDistance = 0; var isDragging = false; var startX = 0; var startY = 0;" +
+            // Store image viewer reference globally so we can close it on back button
+            "window._marketplaceImageViewer = null;" +
+            "window._marketplaceImages = [];" +
+            "window._marketplaceImageIndex = 0;" +
+            
+            "function closeImageViewer() {" +
+            "if (window._marketplaceImageViewer) {" +
+            "window._marketplaceImageViewer.remove();" +
+            "window._marketplaceImageViewer = null;" +
+            "}" +
+            "}" +
+            
+            // Expose close function globally for back button handling
+            "window.closeMarketplaceImageViewer = closeImageViewer;" +
             
             "function showImageViewer(images, index) {" +
-            "currentImages = images; currentIndex = index; scale = 1; translateX = 0; translateY = 0;" +
-            "if (imageViewer) imageViewer.remove();" +
+            "window._marketplaceImages = images;" +
+            "window._marketplaceImageIndex = index;" +
+            "closeImageViewer();" +
             
-            "imageViewer = document.createElement('div');" +
-            "imageViewer.className = 'marketplace-image-viewer';" +
+            "var viewer = document.createElement('div');" +
+            "viewer.className = 'marketplace-image-viewer';" +
+            "window._marketplaceImageViewer = viewer;" +
+            
             "var img = document.createElement('img');" +
-            "img.src = images[index]; img.style.transformOrigin = 'center center';" +
+            "img.src = images[index];" +
             
             "var closeBtn = document.createElement('div');" +
-            "closeBtn.className = 'marketplace-image-viewer-close'; closeBtn.textContent = '×';" +
-            "closeBtn.ontouchstart = function(e) { e.stopPropagation(); imageViewer.remove(); imageViewer = null; };" +
-            "closeBtn.onclick = function() { imageViewer.remove(); imageViewer = null; };" +
+            "closeBtn.className = 'marketplace-image-viewer-close';" +
+            "closeBtn.innerHTML = '&times;';" +
             
             "var controls = document.createElement('div');" +
             "controls.className = 'marketplace-image-controls';" +
             "controls.textContent = (index + 1) + ' / ' + images.length;" +
             
-            "imageViewer.appendChild(img); imageViewer.appendChild(closeBtn); imageViewer.appendChild(controls);" +
+            "viewer.appendChild(img);" +
+            "viewer.appendChild(closeBtn);" +
+            "viewer.appendChild(controls);" +
             
+            // Add navigation buttons if multiple images
             "if (images.length > 1) {" +
             "var leftBtn = document.createElement('div');" +
-            "leftBtn.className = 'marketplace-nav-button marketplace-nav-left'; leftBtn.textContent = '‹';" +
-            "leftBtn.ontouchstart = function(e) { e.stopPropagation(); navigateImage(-1); };" +
-            "leftBtn.onclick = function() { navigateImage(-1); };" +
+            "leftBtn.className = 'marketplace-image-nav-button marketplace-image-nav-left';" +
+            "leftBtn.innerHTML = '&#8249;';" +
+            
             "var rightBtn = document.createElement('div');" +
-            "rightBtn.className = 'marketplace-nav-button marketplace-nav-right'; rightBtn.textContent = '›';" +
-            "rightBtn.ontouchstart = function(e) { e.stopPropagation(); navigateImage(1); };" +
-            "rightBtn.onclick = function() { navigateImage(1); };" +
-            "imageViewer.appendChild(leftBtn); imageViewer.appendChild(rightBtn);" +
+            "rightBtn.className = 'marketplace-image-nav-button marketplace-image-nav-right';" +
+            "rightBtn.innerHTML = '&#8250;';" +
+            
+            "leftBtn.addEventListener('click', function(e) { e.stopPropagation(); navigateImage(-1); });" +
+            "rightBtn.addEventListener('click', function(e) { e.stopPropagation(); navigateImage(1); });" +
+            
+            "viewer.appendChild(leftBtn);" +
+            "viewer.appendChild(rightBtn);" +
             "}" +
             
-            "img.addEventListener('touchstart', handleTouchStart);" +
-            "img.addEventListener('touchmove', handleTouchMove);" +
-            "img.addEventListener('touchend', handleTouchEnd);" +
-            "document.body.appendChild(imageViewer);" +
-            "}" +
+            // Close button click - only closes viewer, doesn't navigate away
+            "closeBtn.addEventListener('click', function(e) {" +
+            "e.preventDefault(); e.stopPropagation();" +
+            "closeImageViewer();" +
+            "});" +
             
-            "function updateTransform() {" +
-            "var img = imageViewer.querySelector('img');" +
-            "img.style.transform = 'translate(' + translateX + 'px, ' + translateY + 'px) scale(' + scale + ')';" +
+            // Tap on background to close
+            "viewer.addEventListener('click', function(e) {" +
+            "if (e.target === viewer) {" +
+            "e.preventDefault(); e.stopPropagation();" +
+            "closeImageViewer();" +
             "}" +
+            "});" +
             
-            "function handleTouchStart(e) {" +
-            "e.preventDefault();" +
-            "if (e.touches.length === 2) { lastDistance = getDistance(e.touches); }" +
-            "else if (e.touches.length === 1) { isDragging = true; startX = e.touches[0].clientX - translateX; startY = e.touches[0].clientY - translateY; }" +
-            "}" +
+            // Swipe detection for image navigation
+            "var touchStartX = 0;" +
+            "var touchStartY = 0;" +
+            "var touchEndX = 0;" +
             
-            "function handleTouchMove(e) {" +
-            "e.preventDefault();" +
-            "if (e.touches.length === 2) {" +
-            "var distance = getDistance(e.touches);" +
-            "if (lastDistance > 0) { scale *= distance / lastDistance; scale = Math.max(1, Math.min(scale, 5)); updateTransform(); }" +
-            "lastDistance = distance;" +
-            "} else if (e.touches.length === 1 && isDragging && scale > 1) {" +
-            "translateX = e.touches[0].clientX - startX; translateY = e.touches[0].clientY - startY; updateTransform();" +
-            "}" +
-            "}" +
+            "img.addEventListener('touchstart', function(e) {" +
+            "touchStartX = e.touches[0].clientX;" +
+            "touchStartY = e.touches[0].clientY;" +
+            "}, { passive: true });" +
             
-            "function handleTouchEnd(e) {" +
-            "if (e.touches.length === 0) {" +
-            "isDragging = false; lastDistance = 0;" +
-            "if (scale === 1) { translateX = 0; translateY = 0; updateTransform(); }" +
+            "img.addEventListener('touchend', function(e) {" +
+            "touchEndX = e.changedTouches[0].clientX;" +
+            "var diffX = touchStartX - touchEndX;" +
+            "var diffY = Math.abs(touchStartY - e.changedTouches[0].clientY);" +
+            // Only navigate if horizontal swipe and not too much vertical movement
+            "if (Math.abs(diffX) > 50 && diffY < 100 && images.length > 1) {" +
+            "if (diffX > 0) { navigateImage(1); }" +
+            "else { navigateImage(-1); }" +
             "}" +
-            "}" +
+            "}, { passive: true });" +
             
-            "function getDistance(touches) { var dx = touches[0].clientX - touches[1].clientX; var dy = touches[0].clientY - touches[1].clientY; return Math.sqrt(dx * dx + dy * dy); }" +
+            "document.body.appendChild(viewer);" +
+            "}" +
             
             "function navigateImage(dir) {" +
-            "currentIndex += dir; if (currentIndex < 0) currentIndex = currentImages.length - 1;" +
-            "else if (currentIndex >= currentImages.length) currentIndex = 0;" +
-            "scale = 1; translateX = 0; translateY = 0;" +
-            "var img = imageViewer.querySelector('img'); img.src = currentImages[currentIndex];" +
-            "var controls = imageViewer.querySelector('.marketplace-image-controls');" +
-            "controls.textContent = (currentIndex + 1) + ' / ' + currentImages.length;" +
-            "updateTransform();" +
+            "var images = window._marketplaceImages;" +
+            "var index = window._marketplaceImageIndex;" +
+            "index += dir;" +
+            "if (index < 0) index = images.length - 1;" +
+            "else if (index >= images.length) index = 0;" +
+            "window._marketplaceImageIndex = index;" +
+            
+            "var viewer = window._marketplaceImageViewer;" +
+            "if (viewer) {" +
+            "var img = viewer.querySelector('img');" +
+            "var controls = viewer.querySelector('.marketplace-image-controls');" +
+            "if (img) img.src = images[index];" +
+            "if (controls) controls.textContent = (index + 1) + ' / ' + images.length;" +
+            "}" +
             "}" +
             
             "function findListingImages(clickedImg) {" +
             "var images = [];" +
-            "console.log('Finding listing images...');" +
+            "var seen = {};" +
             
-            // Just use the clicked image's source directly
-            "if (clickedImg.src) {" +
+            // First add the clicked image
+            "if (clickedImg.src && clickedImg.src.includes('scontent')) {" +
             "images.push(clickedImg.src);" +
-            "console.log('Added clicked image: ' + clickedImg.src.substring(0, 80));" +
+            "seen[clickedImg.src] = true;" +
             "}" +
             
-            // Look for other images in the same carousel/container
-            "var container = clickedImg.parentElement;" +
-            "for (var i = 0; i < 5 && container; i++) {" +
+            // Look for carousel/image container
+            "var container = clickedImg;" +
+            "for (var i = 0; i < 10 && container; i++) {" +
             "container = container.parentElement;" +
+            "if (!container) break;" +
+            // Look for other images in potential carousel
+            "var imgs = container.querySelectorAll('img');" +
+            "for (var j = 0; j < imgs.length; j++) {" +
+            "var src = imgs[j].src;" +
+            "if (src && src.includes('scontent') && !seen[src] && imgs[j].offsetWidth > 50) {" +
+            "images.push(src);" +
+            "seen[src] = true;" +
+            "}" +
+            "}" +
+            // If we found multiple images, stop searching
+            "if (images.length > 1) break;" +
             "}" +
             
-            "if (container) {" +
-            "var allImgs = container.querySelectorAll('img');" +
-            "console.log('Found ' + allImgs.length + ' images in container');" +
-            "for (var j = 0; j < allImgs.length; j++) {" +
-            "var img = allImgs[j];" +
-            "if (img.src && img.src.includes('scontent') && img.width >= 50) {" +
-            "if (images.indexOf(img.src) === -1) {" +
-            "images.push(img.src);" +
-            "console.log('Added image: ' + img.src.substring(0, 80));" +
-            "}" +
-            "}" +
-            "}" +
-            "}" +
-            
-            "console.log('Total images found: ' + images.length);" +
             "return images;" +
             "}" +
             
+            // Click handler for images
             "document.addEventListener('click', function(e) {" +
-            "var img = e.target.closest('img');" +
-            "if (img && img.src && img.src.includes('scontent')) {" +
+            "var img = e.target;" +
+            "if (img.tagName !== 'IMG') img = e.target.closest('img');" +
+            "if (!img || !img.src || !img.src.includes('scontent')) return;" +
+            
             "var url = window.location.href;" +
             "if (url.includes('/marketplace/item/') || url.includes('/product/')) {" +
-            "e.preventDefault(); e.stopPropagation();" +
+            "e.preventDefault();" +
+            "e.stopPropagation();" +
             "var images = findListingImages(img);" +
-            "var index = images.indexOf(img.src); if (index === -1) index = 0;" +
+            "var index = images.indexOf(img.src);" +
+            "if (index === -1) index = 0;" +
             "showImageViewer(images, index);" +
-            "return false;" +
-            "}" +
             "}" +
             "}, true);" +
             
             "console.log('Image enhancements applied');" +
+            "} catch(e) { console.log('Image enhancement error:', e); }" +
             "})();";
         
         executeJavaScript(script);
@@ -439,48 +450,6 @@ public final class JsInjectorFixed {
             "});" +
             
             "console.log('Textarea fix applied');" +
-            "})();";
-        
-        executeJavaScript(script);
-    }
-
-    // Fix scroll issues on listing detail pages
-    private void injectScrollFix() {
-        Log.d(TAG, "Injecting scroll fix");
-        String script = "(function() {" +
-            "if (window._scrollFixAdded) return;" +
-            "window._scrollFixAdded = true;" +
-            "console.log('Scroll fix loading...');" +
-            
-            "function fixScrolling() {" +
-            "try {" +
-            "var url = window.location.href;" +
-            "var isListingPage = url.includes('/marketplace/item/') || url.includes('/product/');" +
-            
-            // Always ensure body and html can scroll
-            "document.documentElement.style.setProperty('overflow-y', 'auto', 'important');" +
-            "document.documentElement.style.setProperty('height', 'auto', 'important');" +
-            "document.body.style.setProperty('overflow-y', 'auto', 'important');" +
-            "document.body.style.setProperty('height', 'auto', 'important');" +
-            
-            // Fix Facebook's scroll-blocking containers on listing pages only
-            "if (isListingPage) {" +
-            "var fixedDivs = document.querySelectorAll('div[style*=\"position: fixed\"]');" +
-            "fixedDivs.forEach(function(div) {" +
-            "if (div.style.overflow === 'hidden' && !div.className.includes('marketplace-')) {" +
-            "div.style.overflow = 'visible';" +
-            "}" +
-            "});" +
-            "}" +
-            "} catch(e) { console.log('Scroll fix error:', e); }" +
-            "}" +
-            
-            // Run fix after delays for dynamic content
-            "setTimeout(fixScrolling, 1000);" +
-            "setTimeout(fixScrolling, 2500);" +
-            "setTimeout(fixScrolling, 5000);" +
-            
-            "console.log('Scroll fix applied');" +
             "})();";
         
         executeJavaScript(script);

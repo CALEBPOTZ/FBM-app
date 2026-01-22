@@ -265,11 +265,30 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        if (binding.webView.canGoBack()) {
-            binding.webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+        // First, try to close the image viewer if it's open
+        binding.webView.evaluateJavascript(
+            "(function() { " +
+            "if (window._marketplaceImageViewer) { " +
+            "window._marketplaceImageViewer.remove(); " +
+            "window._marketplaceImageViewer = null; " +
+            "return 'closed'; " +
+            "} return 'not_open'; " +
+            "})()",
+            result -> {
+                if (result != null && result.contains("closed")) {
+                    // Image viewer was closed, don't go back
+                    return;
+                }
+                // No image viewer, handle normal back navigation
+                runOnUiThread(() -> {
+                    if (binding.webView.canGoBack()) {
+                        binding.webView.goBack();
+                    } else {
+                        super.onBackPressed();
+                    }
+                });
+            }
+        );
     }
 
     @Override
