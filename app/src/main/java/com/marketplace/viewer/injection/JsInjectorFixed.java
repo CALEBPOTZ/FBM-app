@@ -38,25 +38,6 @@ public final class JsInjectorFixed {
             "[data-testid*=\"app-banner\"], [data-testid*=\"download-banner\"] { display: none !important; }" +
             "[aria-label*=\"Create post\"], [aria-label*=\"Create a post\"], [aria-label*=\"Stories\"] { display: none !important; }" +
             "body { background-color: #f0f2f5 !important; }" +
-            // Ensure scrolling works on all pages
-            "html, body { " +
-            "overflow-y: auto !important; " +
-            "overflow-x: hidden !important; " +
-            "height: auto !important; " +
-            "min-height: 100% !important; " +
-            "-webkit-overflow-scrolling: touch !important; " +
-            "}" +
-            // Fix for listing detail pages - ensure content is scrollable
-            "[role=\"main\"], [data-pagelet=\"MarketplaceItemPage\"] { " +
-            "overflow-y: visible !important; " +
-            "overflow-x: hidden !important; " +
-            "height: auto !important; " +
-            "max-height: none !important; " +
-            "}" +
-            // Fix any fixed-height containers that might block scrolling
-            "div[style*=\"overflow: hidden\"], div[style*=\"overflow:hidden\"] { " +
-            "overflow-y: auto !important; " +
-            "}" +
             "`;" +
             "if (!document.getElementById('marketplace-enhancements')) {" +
             "document.head.appendChild(style);" +
@@ -370,10 +351,29 @@ public final class JsInjectorFixed {
             "return images;" +
             "}" +
             
-            // Click handler for images
-            "document.addEventListener('click', function(e) {" +
-            "var img = e.target;" +
-            "if (img.tagName !== 'IMG') img = e.target.closest('img');" +
+            // Click handler for images - use touch events to distinguish tap from scroll
+            "var touchStartY = 0;" +
+            "var touchStartTime = 0;" +
+            "var touchMovedFar = false;" +
+            
+            "document.addEventListener('touchstart', function(e) {" +
+            "touchStartY = e.touches[0].clientY;" +
+            "touchStartTime = Date.now();" +
+            "touchMovedFar = false;" +
+            "}, { passive: true, capture: true });" +
+            
+            "document.addEventListener('touchmove', function(e) {" +
+            "if (Math.abs(e.touches[0].clientY - touchStartY) > 10) {" +
+            "touchMovedFar = true;" +
+            "}" +
+            "}, { passive: true, capture: true });" +
+            
+            "document.addEventListener('touchend', function(e) {" +
+            // If touch moved significantly or took too long, it's a scroll not a tap
+            "if (touchMovedFar || (Date.now() - touchStartTime) > 300) return;" +
+            
+            "var target = e.target;" +
+            "var img = target.tagName === 'IMG' ? target : target.closest('img');" +
             "if (!img || !img.src || !img.src.includes('scontent')) return;" +
             
             "var url = window.location.href;" +
@@ -385,7 +385,7 @@ public final class JsInjectorFixed {
             "if (index === -1) index = 0;" +
             "showImageViewer(images, index);" +
             "}" +
-            "}, true);" +
+            "}, { capture: true });" +
             
             "console.log('Image enhancements applied');" +
             "} catch(e) { console.log('Image enhancement error:', e); }" +
