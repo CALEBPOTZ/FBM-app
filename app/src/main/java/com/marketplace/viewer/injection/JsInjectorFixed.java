@@ -38,6 +38,25 @@ public final class JsInjectorFixed {
             "[data-testid*=\"app-banner\"], [data-testid*=\"download-banner\"] { display: none !important; }" +
             "[aria-label*=\"Create post\"], [aria-label*=\"Create a post\"], [aria-label*=\"Stories\"] { display: none !important; }" +
             "body { background-color: #f0f2f5 !important; }" +
+            // Ensure scrolling works on all pages
+            "html, body { " +
+            "overflow-y: auto !important; " +
+            "overflow-x: hidden !important; " +
+            "height: auto !important; " +
+            "min-height: 100% !important; " +
+            "-webkit-overflow-scrolling: touch !important; " +
+            "}" +
+            // Fix for listing detail pages - ensure content is scrollable
+            "[role=\"main\"], [data-pagelet=\"MarketplaceItemPage\"] { " +
+            "overflow-y: visible !important; " +
+            "overflow-x: hidden !important; " +
+            "height: auto !important; " +
+            "max-height: none !important; " +
+            "}" +
+            // Fix any fixed-height containers that might block scrolling
+            "div[style*=\"overflow: hidden\"], div[style*=\"overflow:hidden\"] { " +
+            "overflow-y: auto !important; " +
+            "}" +
             "`;" +
             "if (!document.getElementById('marketplace-enhancements')) {" +
             "document.head.appendChild(style);" +
