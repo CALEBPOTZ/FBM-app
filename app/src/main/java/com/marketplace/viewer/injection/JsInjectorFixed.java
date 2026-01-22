@@ -16,6 +16,7 @@ public final class JsInjectorFixed {
         Log.d(TAG, "Injecting marketplace enhancements");
         String script = buildEnhancementScript();
         executeJavaScript(script);
+        injectScrollDebugAndFix();
         injectSavedListingsAccess();
         injectImageEnhancements();
         injectSearchEnterKey();
@@ -44,6 +45,110 @@ public final class JsInjectorFixed {
             "}" +
             "console.log('Marketplace enhancements applied');" +
             "})();";
+    }
+
+    private void injectScrollDebugAndFix() {
+        Log.d(TAG, "Injecting scroll debug and fix");
+        String script = "(function() {" +
+            "try {" +
+            "if (window._scrollFixAdded) return;" +
+            "window._scrollFixAdded = true;" +
+            "console.log('Scroll fix loading...');" +
+            
+            // Debug: log current scroll state
+            "function logScrollState() {" +
+            "var body = document.body;" +
+            "var html = document.documentElement;" +
+            "console.log('=== SCROLL DEBUG ===');" +
+            "console.log('URL:', window.location.href);" +
+            "console.log('Body height:', body.scrollHeight, 'viewport:', window.innerHeight);" +
+            "console.log('Body overflow:', window.getComputedStyle(body).overflow);" +
+            "console.log('Body overflow-y:', window.getComputedStyle(body).overflowY);" +
+            "console.log('HTML overflow:', window.getComputedStyle(html).overflow);" +
+            "console.log('HTML overflow-y:', window.getComputedStyle(html).overflowY);" +
+            "console.log('Body position:', window.getComputedStyle(body).position);" +
+            "console.log('Body height style:', window.getComputedStyle(body).height);" +
+            "console.log('HTML height style:', window.getComputedStyle(html).height);" +
+            
+            // Check for fixed position elements that cover the screen
+            "var fixedElements = document.querySelectorAll('*');" +
+            "var problemElements = [];" +
+            "for (var i = 0; i < fixedElements.length; i++) {" +
+            "var el = fixedElements[i];" +
+            "var style = window.getComputedStyle(el);" +
+            "if (style.position === 'fixed' && (style.height === '100vh' || style.height === '100%')) {" +
+            "if (style.overflowY === 'hidden' || style.overflow === 'hidden') {" +
+            "problemElements.push({el: el, id: el.id, class: el.className});" +
+            "}" +
+            "}" +
+            "}" +
+            "console.log('Problem fixed elements:', problemElements.length);" +
+            "problemElements.forEach(function(p) { console.log('  -', p.id, p.class); });" +
+            "console.log('===================');" +
+            "}" +
+            
+            // Fix function
+            "function fixScroll() {" +
+            "var url = window.location.href;" +
+            "if (!url.includes('/marketplace/item/') && !url.includes('/product/')) return;" +
+            
+            "console.log('Applying scroll fixes for listing page...');" +
+            
+            // Remove any inline styles that prevent scrolling
+            "var body = document.body;" +
+            "var html = document.documentElement;" +
+            
+            // Force scrolling on body and html
+            "body.style.overflow = 'visible';" +
+            "body.style.overflowY = 'auto';" +
+            "body.style.position = 'static';" +
+            "body.style.height = 'auto';" +
+            "html.style.overflow = 'visible';" +
+            "html.style.overflowY = 'auto';" +
+            "html.style.height = 'auto';" +
+            
+            // Find and fix any fixed-position containers that might be blocking scroll
+            "var allElements = document.querySelectorAll('*');" +
+            "var fixed = 0;" +
+            "for (var i = 0; i < allElements.length; i++) {" +
+            "var el = allElements[i];" +
+            "var style = window.getComputedStyle(el);" +
+            // Skip our own elements
+            "if (el.className && (el.className.includes('marketplace-') || el.className.includes('image-viewer'))) continue;" +
+            
+            // Fix elements that are fixed, full-height, and have overflow:hidden
+            "if (style.position === 'fixed') {" +
+            "var h = style.height;" +
+            "if ((h === '100vh' || h === '100%') && (style.overflow === 'hidden' || style.overflowY === 'hidden')) {" +
+            "el.style.overflow = 'auto';" +
+            "el.style.overflowY = 'auto';" +
+            "fixed++;" +
+            "console.log('Fixed element:', el.id, el.className);" +
+            "}" +
+            "}" +
+            "}" +
+            "console.log('Fixed', fixed, 'elements');" +
+            "}" +
+            
+            // Run debug and fix
+            "setTimeout(function() { logScrollState(); fixScroll(); }, 1000);" +
+            "setTimeout(function() { logScrollState(); fixScroll(); }, 3000);" +
+            
+            // Re-apply fix when URL changes (for SPA navigation)
+            "var lastUrl = window.location.href;" +
+            "setInterval(function() {" +
+            "if (window.location.href !== lastUrl) {" +
+            "lastUrl = window.location.href;" +
+            "setTimeout(function() { fixScroll(); }, 500);" +
+            "}" +
+            "}, 1000);" +
+            
+            "console.log('Scroll fix applied');" +
+            "} catch(e) { console.log('Scroll fix error:', e); }" +
+            "})();";
+        
+        executeJavaScript(script);
+    }
     }
 
     public final void injectAntiDetection() {
