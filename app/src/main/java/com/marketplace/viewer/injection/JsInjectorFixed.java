@@ -453,70 +453,32 @@ public final class JsInjectorFixed {
             "console.log('Scroll fix loading...');" +
             
             "function fixScrolling() {" +
+            "try {" +
             "var url = window.location.href;" +
             "var isListingPage = url.includes('/marketplace/item/') || url.includes('/product/');" +
             
             // Always ensure body and html can scroll
-            "document.documentElement.style.cssText += 'overflow-y: auto !important; height: auto !important; -webkit-overflow-scrolling: touch !important;';" +
-            "document.body.style.cssText += 'overflow-y: auto !important; height: auto !important; -webkit-overflow-scrolling: touch !important; position: relative !important;';" +
+            "document.documentElement.style.setProperty('overflow-y', 'auto', 'important');" +
+            "document.documentElement.style.setProperty('height', 'auto', 'important');" +
+            "document.body.style.setProperty('overflow-y', 'auto', 'important');" +
+            "document.body.style.setProperty('height', 'auto', 'important');" +
             
-            // Find and fix any containers that might be blocking scroll
-            "var containers = document.querySelectorAll('div[style*=\"overflow: hidden\"], div[style*=\"overflow:hidden\"]');" +
-            "containers.forEach(function(el) {" +
-            "var rect = el.getBoundingClientRect();" +
-            // Only fix large containers that might be blocking page scroll
-            "if (rect.height > window.innerHeight * 0.5) {" +
-            "el.style.overflow = 'visible';" +
-            "el.style.overflowY = 'visible';" +
-            "}" +
-            "});" +
-            
-            // Fix Facebook's scroll-blocking containers on listing pages
+            // Fix Facebook's scroll-blocking containers on listing pages only
             "if (isListingPage) {" +
-            "var allDivs = document.querySelectorAll('div');" +
-            "allDivs.forEach(function(div) {" +
-            "var style = window.getComputedStyle(div);" +
-            "if (style.overflow === 'hidden' && style.position === 'fixed') {" +
-            // Don't modify our own components
-            "if (!div.classList.contains('marketplace-')) {" +
+            "var fixedDivs = document.querySelectorAll('div[style*=\"position: fixed\"]');" +
+            "fixedDivs.forEach(function(div) {" +
+            "if (div.style.overflow === 'hidden' && !div.className.includes('marketplace-')) {" +
             "div.style.overflow = 'visible';" +
             "}" +
-            "}" +
-            // Fix height-constrained containers
-            "if (style.height && style.overflow === 'hidden') {" +
-            "var height = parseInt(style.height);" +
-            "if (height > 100 && height < window.innerHeight) {" +
-            "div.style.overflow = 'auto';" +
-            "div.style.height = 'auto';" +
-            "}" +
-            "}" +
             "});" +
             "}" +
+            "} catch(e) { console.log('Scroll fix error:', e); }" +
             "}" +
             
-            // Run fix immediately
-            "fixScrolling();" +
-            
-            // Run again after a delay for dynamic content
+            // Run fix after delays for dynamic content
             "setTimeout(fixScrolling, 1000);" +
-            "setTimeout(fixScrolling, 2000);" +
-            "setTimeout(fixScrolling, 3000);" +
-            
-            // Watch for DOM changes and reapply fix
-            "var scrollObserver = new MutationObserver(function(mutations) {" +
-            "fixScrolling();" +
-            "});" +
-            "scrollObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });" +
-            
-            // Also fix on navigation within the SPA
-            "var lastUrl = window.location.href;" +
-            "setInterval(function() {" +
-            "if (window.location.href !== lastUrl) {" +
-            "lastUrl = window.location.href;" +
-            "setTimeout(fixScrolling, 500);" +
-            "setTimeout(fixScrolling, 1500);" +
-            "}" +
-            "}, 500);" +
+            "setTimeout(fixScrolling, 2500);" +
+            "setTimeout(fixScrolling, 5000);" +
             
             "console.log('Scroll fix applied');" +
             "})();";
@@ -528,6 +490,7 @@ public final class JsInjectorFixed {
     private void injectScrollToTop() {
         Log.d(TAG, "Injecting scroll to top button");
         String script = "(function() {" +
+            "try {" +
             "if (window._scrollToTopAdded) return;" +
             "window._scrollToTopAdded = true;" +
             "console.log('Scroll to top button loading...');" +
@@ -556,7 +519,6 @@ public final class JsInjectorFixed {
             "scrollBtn.title = 'Scroll to top';" +
             
             "var scrollThreshold = 500;" +
-            "var lastScrollY = 0;" +
             
             "function checkScroll() {" +
             "var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;" +
@@ -565,7 +527,6 @@ public final class JsInjectorFixed {
             "} else {" +
             "scrollBtn.classList.remove('visible');" +
             "}" +
-            "lastScrollY = scrollY;" +
             "}" +
             
             "scrollBtn.addEventListener('click', function(e) {" +
@@ -586,6 +547,7 @@ public final class JsInjectorFixed {
             "}, 1500);" +
             
             "console.log('Scroll to top button applied');" +
+            "} catch(e) { console.log('Scroll to top error:', e); }" +
             "})();";
         
         executeJavaScript(script);
@@ -595,6 +557,7 @@ public final class JsInjectorFixed {
     private void injectSideNavigation() {
         Log.d(TAG, "Injecting side navigation");
         String script = "(function() {" +
+            "try {" +
             "if (window._sideNavAdded) return;" +
             "window._sideNavAdded = true;" +
             "console.log('Side navigation loading...');" +
@@ -849,6 +812,7 @@ public final class JsInjectorFixed {
             "}, 1500);" +
             
             "console.log('Side navigation applied');" +
+            "} catch(e) { console.log('Side navigation error:', e); }" +
             "})();";
         
         executeJavaScript(script);
