@@ -20,6 +20,9 @@ public final class JsInjectorFixed {
         injectImageEnhancements();
         injectSearchEnterKey();
         injectTextareaFix();
+        injectScrollFix();
+        injectScrollToTop();
+        injectSideNavigation();
     }
 
     private String buildEnhancementScript() {
@@ -36,6 +39,24 @@ public final class JsInjectorFixed {
             "[data-testid*=\"app-banner\"], [data-testid*=\"download-banner\"] { display: none !important; }" +
             "[aria-label*=\"Create post\"], [aria-label*=\"Create a post\"], [aria-label*=\"Stories\"] { display: none !important; }" +
             "body { background-color: #f0f2f5 !important; }" +
+            // Fix scroll issues on listing detail pages
+            "html, body { " +
+            "height: auto !important; min-height: 100% !important; " +
+            "overflow-y: auto !important; overflow-x: hidden !important; " +
+            "-webkit-overflow-scrolling: touch !important; " +
+            "}" +
+            // Ensure main content areas can scroll
+            "[role=\"main\"], [data-pagelet=\"MainFeed\"], [data-pagelet=\"root\"] { " +
+            "overflow: visible !important; height: auto !important; " +
+            "}" +
+            // Fix for listing detail page containers
+            "[data-pagelet*=\"Marketplace\"], [data-pagelet*=\"marketplace\"] { " +
+            "overflow: visible !important; height: auto !important; " +
+            "}" +
+            // Ensure no fixed height containers block scrolling
+            "div[style*=\"overflow: hidden\"][style*=\"height\"] { " +
+            "overflow: visible !important; height: auto !important; " +
+            "}" +
             "`;" +
             "if (!document.getElementById('marketplace-enhancements')) {" +
             "document.head.appendChild(style);" +
@@ -418,6 +439,416 @@ public final class JsInjectorFixed {
             "});" +
             
             "console.log('Textarea fix applied');" +
+            "})();";
+        
+        executeJavaScript(script);
+    }
+
+    // Fix scroll issues on listing detail pages
+    private void injectScrollFix() {
+        Log.d(TAG, "Injecting scroll fix");
+        String script = "(function() {" +
+            "if (window._scrollFixAdded) return;" +
+            "window._scrollFixAdded = true;" +
+            "console.log('Scroll fix loading...');" +
+            
+            "function fixScrolling() {" +
+            "var url = window.location.href;" +
+            "var isListingPage = url.includes('/marketplace/item/') || url.includes('/product/');" +
+            
+            // Always ensure body and html can scroll
+            "document.documentElement.style.cssText += 'overflow-y: auto !important; height: auto !important; -webkit-overflow-scrolling: touch !important;';" +
+            "document.body.style.cssText += 'overflow-y: auto !important; height: auto !important; -webkit-overflow-scrolling: touch !important; position: relative !important;';" +
+            
+            // Find and fix any containers that might be blocking scroll
+            "var containers = document.querySelectorAll('div[style*=\"overflow: hidden\"], div[style*=\"overflow:hidden\"]');" +
+            "containers.forEach(function(el) {" +
+            "var rect = el.getBoundingClientRect();" +
+            // Only fix large containers that might be blocking page scroll
+            "if (rect.height > window.innerHeight * 0.5) {" +
+            "el.style.overflow = 'visible';" +
+            "el.style.overflowY = 'visible';" +
+            "}" +
+            "});" +
+            
+            // Fix Facebook's scroll-blocking containers on listing pages
+            "if (isListingPage) {" +
+            "var allDivs = document.querySelectorAll('div');" +
+            "allDivs.forEach(function(div) {" +
+            "var style = window.getComputedStyle(div);" +
+            "if (style.overflow === 'hidden' && style.position === 'fixed') {" +
+            // Don't modify our own components
+            "if (!div.classList.contains('marketplace-')) {" +
+            "div.style.overflow = 'visible';" +
+            "}" +
+            "}" +
+            // Fix height-constrained containers
+            "if (style.height && style.overflow === 'hidden') {" +
+            "var height = parseInt(style.height);" +
+            "if (height > 100 && height < window.innerHeight) {" +
+            "div.style.overflow = 'auto';" +
+            "div.style.height = 'auto';" +
+            "}" +
+            "}" +
+            "});" +
+            "}" +
+            "}" +
+            
+            // Run fix immediately
+            "fixScrolling();" +
+            
+            // Run again after a delay for dynamic content
+            "setTimeout(fixScrolling, 1000);" +
+            "setTimeout(fixScrolling, 2000);" +
+            "setTimeout(fixScrolling, 3000);" +
+            
+            // Watch for DOM changes and reapply fix
+            "var scrollObserver = new MutationObserver(function(mutations) {" +
+            "fixScrolling();" +
+            "});" +
+            "scrollObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });" +
+            
+            // Also fix on navigation within the SPA
+            "var lastUrl = window.location.href;" +
+            "setInterval(function() {" +
+            "if (window.location.href !== lastUrl) {" +
+            "lastUrl = window.location.href;" +
+            "setTimeout(fixScrolling, 500);" +
+            "setTimeout(fixScrolling, 1500);" +
+            "}" +
+            "}, 500);" +
+            
+            "console.log('Scroll fix applied');" +
+            "})();";
+        
+        executeJavaScript(script);
+    }
+
+    // Scroll to top button that appears when user scrolls down
+    private void injectScrollToTop() {
+        Log.d(TAG, "Injecting scroll to top button");
+        String script = "(function() {" +
+            "if (window._scrollToTopAdded) return;" +
+            "window._scrollToTopAdded = true;" +
+            "console.log('Scroll to top button loading...');" +
+            
+            "var scrollStyle = document.createElement('style');" +
+            "scrollStyle.id = 'marketplace-scroll-to-top';" +
+            "scrollStyle.textContent = `" +
+            ".marketplace-scroll-top {" +
+            "position: fixed !important; bottom: 80px !important; right: 20px !important;" +
+            "width: 50px !important; height: 50px !important;" +
+            "border-radius: 50% !important; background: #1877f2 !important; color: white !important;" +
+            "display: flex !important; align-items: center !important; justify-content: center !important;" +
+            "box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; cursor: pointer !important; z-index: 9998 !important;" +
+            "font-size: 24px !important; opacity: 0 !important; visibility: hidden !important;" +
+            "transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.2s ease !important;" +
+            "user-select: none !important; touch-action: manipulation !important;" +
+            "}" +
+            ".marketplace-scroll-top.visible { opacity: 1 !important; visibility: visible !important; }" +
+            ".marketplace-scroll-top:active { transform: scale(0.9) !important; }" +
+            "`;" +
+            "if (!document.getElementById('marketplace-scroll-to-top')) { document.head.appendChild(scrollStyle); }" +
+            
+            "var scrollBtn = document.createElement('div');" +
+            "scrollBtn.className = 'marketplace-scroll-top';" +
+            "scrollBtn.innerHTML = '&#8679;';" +
+            "scrollBtn.title = 'Scroll to top';" +
+            
+            "var scrollThreshold = 500;" +
+            "var lastScrollY = 0;" +
+            
+            "function checkScroll() {" +
+            "var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;" +
+            "if (scrollY > scrollThreshold) {" +
+            "scrollBtn.classList.add('visible');" +
+            "} else {" +
+            "scrollBtn.classList.remove('visible');" +
+            "}" +
+            "lastScrollY = scrollY;" +
+            "}" +
+            
+            "scrollBtn.addEventListener('click', function(e) {" +
+            "e.preventDefault(); e.stopPropagation();" +
+            "window.scrollTo({ top: 0, behavior: 'smooth' });" +
+            "});" +
+            
+            "scrollBtn.addEventListener('touchend', function(e) {" +
+            "e.preventDefault(); e.stopPropagation();" +
+            "window.scrollTo({ top: 0, behavior: 'smooth' });" +
+            "});" +
+            
+            "window.addEventListener('scroll', checkScroll, { passive: true });" +
+            
+            "setTimeout(function() {" +
+            "if (!document.querySelector('.marketplace-scroll-top')) { document.body.appendChild(scrollBtn); }" +
+            "checkScroll();" +
+            "}, 1500);" +
+            
+            "console.log('Scroll to top button applied');" +
+            "})();";
+        
+        executeJavaScript(script);
+    }
+
+    // Side navigation drawer with swipe gesture
+    private void injectSideNavigation() {
+        Log.d(TAG, "Injecting side navigation");
+        String script = "(function() {" +
+            "if (window._sideNavAdded) return;" +
+            "window._sideNavAdded = true;" +
+            "console.log('Side navigation loading...');" +
+            
+            "var navStyle = document.createElement('style');" +
+            "navStyle.id = 'marketplace-side-nav';" +
+            "navStyle.textContent = `" +
+            ".marketplace-nav-overlay {" +
+            "position: fixed !important; top: 0 !important; left: 0 !important;" +
+            "width: 100vw !important; height: 100vh !important;" +
+            "background: rgba(0, 0, 0, 0.5) !important; z-index: 99998 !important;" +
+            "opacity: 0 !important; visibility: hidden !important;" +
+            "transition: opacity 0.3s ease, visibility 0.3s ease !important;" +
+            "}" +
+            ".marketplace-nav-overlay.visible { opacity: 1 !important; visibility: visible !important; }" +
+            
+            ".marketplace-side-nav {" +
+            "position: fixed !important; top: 0 !important; left: 0 !important;" +
+            "width: 280px !important; height: 100vh !important;" +
+            "background: #ffffff !important; z-index: 99999 !important;" +
+            "box-shadow: 2px 0 12px rgba(0,0,0,0.3) !important;" +
+            "transform: translateX(-100%) !important;" +
+            "transition: transform 0.3s ease !important;" +
+            "display: flex !important; flex-direction: column !important;" +
+            "overflow: hidden !important;" +
+            "}" +
+            ".marketplace-side-nav.open { transform: translateX(0) !important; }" +
+            
+            ".marketplace-nav-header {" +
+            "background: #1877f2 !important; color: white !important;" +
+            "padding: 20px 16px !important; font-size: 20px !important; font-weight: bold !important;" +
+            "display: flex !important; align-items: center !important; justify-content: space-between !important;" +
+            "}" +
+            ".marketplace-nav-close {" +
+            "width: 36px !important; height: 36px !important; border-radius: 50% !important;" +
+            "background: rgba(255,255,255,0.2) !important; color: white !important;" +
+            "display: flex !important; align-items: center !important; justify-content: center !important;" +
+            "font-size: 24px !important; cursor: pointer !important;" +
+            "}" +
+            
+            ".marketplace-nav-search {" +
+            "padding: 16px !important; border-bottom: 1px solid #e4e6eb !important;" +
+            "}" +
+            ".marketplace-nav-search input {" +
+            "width: 100% !important; padding: 12px 16px !important;" +
+            "border: 1px solid #dddfe2 !important; border-radius: 24px !important;" +
+            "font-size: 16px !important; outline: none !important;" +
+            "box-sizing: border-box !important;" +
+            "}" +
+            ".marketplace-nav-search input:focus { border-color: #1877f2 !important; }" +
+            
+            ".marketplace-nav-items {" +
+            "flex: 1 !important; overflow-y: auto !important; padding: 8px 0 !important;" +
+            "}" +
+            ".marketplace-nav-item {" +
+            "display: flex !important; align-items: center !important; padding: 14px 16px !important;" +
+            "cursor: pointer !important; transition: background 0.2s ease !important;" +
+            "font-size: 16px !important; color: #1c1e21 !important;" +
+            "}" +
+            ".marketplace-nav-item:active { background: #f0f2f5 !important; }" +
+            ".marketplace-nav-item-icon {" +
+            "width: 36px !important; height: 36px !important; border-radius: 50% !important;" +
+            "background: #e4e6eb !important; display: flex !important; align-items: center !important;" +
+            "justify-content: center !important; margin-right: 12px !important; font-size: 18px !important;" +
+            "}" +
+            ".marketplace-nav-divider { height: 1px !important; background: #e4e6eb !important; margin: 8px 16px !important; }" +
+            
+            ".marketplace-nav-footer {" +
+            "padding: 16px !important; border-top: 1px solid #e4e6eb !important;" +
+            "background: #f7f8fa !important;" +
+            "}" +
+            ".marketplace-nav-version {" +
+            "font-size: 12px !important; color: #65676b !important; text-align: center !important;" +
+            "margin-bottom: 8px !important;" +
+            "}" +
+            
+            ".marketplace-swipe-indicator {" +
+            "position: fixed !important; top: 50% !important; left: 0 !important;" +
+            "width: 4px !important; height: 60px !important; transform: translateY(-50%) !important;" +
+            "background: #1877f2 !important; border-radius: 0 4px 4px 0 !important;" +
+            "opacity: 0.5 !important; z-index: 9997 !important;" +
+            "transition: width 0.2s ease, opacity 0.2s ease !important;" +
+            "}" +
+            ".marketplace-swipe-indicator:active { width: 8px !important; opacity: 0.8 !important; }" +
+            "`;" +
+            "if (!document.getElementById('marketplace-side-nav')) { document.head.appendChild(navStyle); }" +
+            
+            // Create overlay
+            "var overlay = document.createElement('div');" +
+            "overlay.className = 'marketplace-nav-overlay';" +
+            
+            // Create side nav
+            "var sideNav = document.createElement('div');" +
+            "sideNav.className = 'marketplace-side-nav';" +
+            
+            // Header
+            "var header = document.createElement('div');" +
+            "header.className = 'marketplace-nav-header';" +
+            "header.innerHTML = '<span>Marketplace</span><div class=\"marketplace-nav-close\">&times;</div>';" +
+            
+            // Search section
+            "var searchSection = document.createElement('div');" +
+            "searchSection.className = 'marketplace-nav-search';" +
+            "var searchInput = document.createElement('input');" +
+            "searchInput.type = 'text';" +
+            "searchInput.placeholder = 'Search Marketplace';" +
+            "searchSection.appendChild(searchInput);" +
+            
+            // Nav items container
+            "var navItems = document.createElement('div');" +
+            "navItems.className = 'marketplace-nav-items';" +
+            
+            // Create nav items
+            "var items = [" +
+            "{ icon: '&#9733;', label: 'Saved Listings', url: 'https://www.facebook.com/marketplace/you/saved', action: null }," +
+            "{ icon: '&#9776;', label: 'My Listings', url: 'https://www.facebook.com/marketplace/you/selling', action: null }," +
+            "{ icon: '&#128269;', label: 'Saved Searches', url: 'https://www.facebook.com/marketplace/you/saved_searches', action: null }," +
+            "{ icon: '&#8635;', label: 'Check for Updates', url: null, action: 'checkUpdates' }" +
+            "];" +
+            
+            "items.forEach(function(item) {" +
+            "var navItem = document.createElement('div');" +
+            "navItem.className = 'marketplace-nav-item';" +
+            "navItem.innerHTML = '<div class=\"marketplace-nav-item-icon\">' + item.icon + '</div><span>' + item.label + '</span>';" +
+            "navItem.addEventListener('click', function() {" +
+            "closeNav();" +
+            "if (item.action === 'checkUpdates') {" +
+            "if (typeof MarketplaceApp !== 'undefined' && MarketplaceApp.checkForUpdates) {" +
+            "MarketplaceApp.checkForUpdates();" +
+            "} else { console.log('MarketplaceApp interface not available'); }" +
+            "} else if (item.url) { window.location.href = item.url; }" +
+            "});" +
+            "navItem.addEventListener('touchend', function(e) {" +
+            "e.preventDefault(); closeNav();" +
+            "if (item.action === 'checkUpdates') {" +
+            "if (typeof MarketplaceApp !== 'undefined' && MarketplaceApp.checkForUpdates) {" +
+            "MarketplaceApp.checkForUpdates();" +
+            "} else { console.log('MarketplaceApp interface not available'); }" +
+            "} else if (item.url) { window.location.href = item.url; }" +
+            "});" +
+            "navItems.appendChild(navItem);" +
+            "});" +
+            
+            // Create footer with version info
+            "var footer = document.createElement('div');" +
+            "footer.className = 'marketplace-nav-footer';" +
+            "var versionText = 'Version: ';" +
+            "if (typeof MarketplaceApp !== 'undefined' && MarketplaceApp.getAppVersion) {" +
+            "versionText += MarketplaceApp.getAppVersion();" +
+            "} else { versionText += 'Unknown'; }" +
+            "footer.innerHTML = '<div class=\"marketplace-nav-version\">' + versionText + '</div>';" +
+            
+            // Assemble side nav
+            "sideNav.appendChild(header);" +
+            "sideNav.appendChild(searchSection);" +
+            "sideNav.appendChild(navItems);" +
+            "sideNav.appendChild(footer);" +
+            
+            // Create swipe indicator on left edge
+            "var swipeIndicator = document.createElement('div');" +
+            "swipeIndicator.className = 'marketplace-swipe-indicator';" +
+            
+            // Functions to open/close nav
+            "function openNav() { sideNav.classList.add('open'); overlay.classList.add('visible'); }" +
+            "function closeNav() { sideNav.classList.remove('open'); overlay.classList.remove('visible'); }" +
+            
+            // Close button handler
+            "header.querySelector('.marketplace-nav-close').addEventListener('click', closeNav);" +
+            "header.querySelector('.marketplace-nav-close').addEventListener('touchend', function(e) { e.preventDefault(); closeNav(); });" +
+            
+            // Overlay click to close
+            "overlay.addEventListener('click', closeNav);" +
+            "overlay.addEventListener('touchend', function(e) { e.preventDefault(); closeNav(); });" +
+            
+            // Search input handler
+            "searchInput.addEventListener('keypress', function(e) {" +
+            "if (e.key === 'Enter' || e.keyCode === 13) {" +
+            "var query = searchInput.value.trim();" +
+            "if (query) { closeNav(); window.location.href = 'https://www.facebook.com/marketplace/search?query=' + encodeURIComponent(query); }" +
+            "}" +
+            "});" +
+            
+            // Swipe detection variables
+            "var touchStartX = 0;" +
+            "var touchStartY = 0;" +
+            "var touchMoveX = 0;" +
+            "var isSwipingNav = false;" +
+            "var swipeThreshold = 50;" +
+            "var edgeWidth = 30;" +
+            
+            // Swipe from left edge to open
+            "document.addEventListener('touchstart', function(e) {" +
+            "if (sideNav.classList.contains('open')) return;" +
+            "var touch = e.touches[0];" +
+            "if (touch.clientX <= edgeWidth) {" +
+            "touchStartX = touch.clientX;" +
+            "touchStartY = touch.clientY;" +
+            "isSwipingNav = true;" +
+            "}" +
+            "}, { passive: true });" +
+            
+            "document.addEventListener('touchmove', function(e) {" +
+            "if (!isSwipingNav) return;" +
+            "var touch = e.touches[0];" +
+            "touchMoveX = touch.clientX - touchStartX;" +
+            "var touchMoveY = Math.abs(touch.clientY - touchStartY);" +
+            // Only track horizontal swipes
+            "if (touchMoveY > Math.abs(touchMoveX)) { isSwipingNav = false; return; }" +
+            "if (touchMoveX > 0) {" +
+            "var progress = Math.min(touchMoveX / 200, 1);" +
+            "sideNav.style.transform = 'translateX(' + (-100 + (progress * 100)) + '%)';" +
+            "sideNav.style.transition = 'none';" +
+            "overlay.style.opacity = progress;" +
+            "overlay.style.visibility = 'visible';" +
+            "overlay.style.transition = 'none';" +
+            "}" +
+            "}, { passive: true });" +
+            
+            "document.addEventListener('touchend', function(e) {" +
+            "if (!isSwipingNav) return;" +
+            "isSwipingNav = false;" +
+            "sideNav.style.transition = '';" +
+            "sideNav.style.transform = '';" +
+            "overlay.style.transition = '';" +
+            "overlay.style.opacity = '';" +
+            "if (touchMoveX > swipeThreshold) { openNav(); } else { closeNav(); }" +
+            "touchMoveX = 0;" +
+            "}, { passive: true });" +
+            
+            // Swipe indicator tap to open
+            "swipeIndicator.addEventListener('click', openNav);" +
+            "swipeIndicator.addEventListener('touchend', function(e) { e.preventDefault(); openNav(); });" +
+            
+            // Swipe on nav to close
+            "var navTouchStartX = 0;" +
+            "sideNav.addEventListener('touchstart', function(e) {" +
+            "navTouchStartX = e.touches[0].clientX;" +
+            "}, { passive: true });" +
+            
+            "sideNav.addEventListener('touchend', function(e) {" +
+            "var navTouchEndX = e.changedTouches[0].clientX;" +
+            "if (navTouchStartX - navTouchEndX > 50) { closeNav(); }" +
+            "}, { passive: true });" +
+            
+            // Append elements to DOM
+            "setTimeout(function() {" +
+            "if (!document.querySelector('.marketplace-side-nav')) {" +
+            "document.body.appendChild(overlay);" +
+            "document.body.appendChild(sideNav);" +
+            "document.body.appendChild(swipeIndicator);" +
+            "}" +
+            "}, 1500);" +
+            
+            "console.log('Side navigation applied');" +
             "})();";
         
         executeJavaScript(script);

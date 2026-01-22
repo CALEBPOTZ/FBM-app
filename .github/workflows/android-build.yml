@@ -104,7 +104,14 @@ jobs:
           - ✅ Search with Enter key support
           - ✅ Fixed textarea overflow in forms
           - ✅ Clean UI without Facebook bloat
-          - ✅ Auto-update checker (notifies you of new versions)
+          - ✅ **Side Navigation** (swipe from left edge)
+            - Search Marketplace
+            - Saved Listings
+            - My Listings
+            - Saved Searches
+            - Check for Updates
+          - ✅ **Scroll to Top** button (appears when scrolling down)
+          - ✅ **Auto-update with in-app download & install**
           
           ### Installation
           1. Download `app-debug.apk` below

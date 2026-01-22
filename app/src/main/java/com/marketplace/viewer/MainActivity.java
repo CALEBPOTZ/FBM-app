@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.widget.Toast;
 
@@ -55,6 +56,9 @@ public class MainActivity extends AppCompatActivity {
         messengerDeepLinker = new MessengerDeepLinker(this);
         jsInjector = new JsInjectorFixed(binding.webView);
         
+        // Initialize update checker
+        updateChecker = new UpdateChecker(this);
+        
         // Setup file picker
         filePickerLauncher = registerForActivityResult(
             new ActivityResultContracts.GetMultipleContents(),
@@ -70,8 +74,7 @@ public class MainActivity extends AppCompatActivity {
         // Load marketplace
         checkAuthAndLoad();
         
-        // Check for updates
-        updateChecker = new UpdateChecker(this);
+        // Check for updates (automatic check)
         updateChecker.checkForUpdates();
     }
 
@@ -126,7 +129,30 @@ public class MainActivity extends AppCompatActivity {
         binding.webView.setWebViewClient(new MarketplaceWebViewClient(webViewCallbacks));
         binding.webView.setWebChromeClient(new MarketplaceWebChromeClient(chromeCallbacks));
         
+        // Add JavaScript interface for native features
+        binding.webView.addJavascriptInterface(new AppInterface(), "MarketplaceApp");
+        
         requestLocationPermissionIfNeeded();
+    }
+
+    /**
+     * JavaScript interface to expose native functionality to WebView
+     */
+    public class AppInterface {
+        @JavascriptInterface
+        public void checkForUpdates() {
+            Log.d(TAG, "Update check triggered from JavaScript");
+            runOnUiThread(() -> {
+                if (updateChecker != null) {
+                    updateChecker.checkForUpdatesManually();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public String getAppVersion() {
+            return updateChecker != null ? updateChecker.getCurrentVersion() : "Unknown";
+        }
     }
 
     private void requestLocationPermissionIfNeeded() {
