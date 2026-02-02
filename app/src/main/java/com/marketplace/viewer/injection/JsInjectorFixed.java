@@ -18,7 +18,8 @@ public final class JsInjectorFixed {
         executeJavaScript(script);
         injectScrollDebugAndFix(); // Re-enabled with fix
         injectSavedListingsAccess();
-        injectImageEnhancements();
+        // TEMPORARILY DISABLED TO TEST IF THIS IS BLOCKING SCROLL
+        // injectImageEnhancements();
         injectSearchEnterKey();
         injectTextareaFix();
         injectScrollToTop();
