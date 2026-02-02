@@ -102,5 +102,17 @@ public class MarketplaceWebViewClient extends WebViewClient {
     public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
         super.doUpdateVisitedHistory(view, url, isReload);
         Log.d(TAG, "History updated: " + url + " (reload=" + isReload + ")");
+        
+        if (UrlConfig.isMessengerUrl(url)) {
+            Log.d(TAG, "Messenger URL detected in history update: " + url);
+            if (callbacks != null) {
+                callbacks.onMessengerLink(url);
+            }
+            // Go back to close the messenger view in WebView if possible
+            // This prevents the user from being stuck in the web messenger
+            if (view.canGoBack()) {
+                view.goBack();
+            }
+        }
     }
 }

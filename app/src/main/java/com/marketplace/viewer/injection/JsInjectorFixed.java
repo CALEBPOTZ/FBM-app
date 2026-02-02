@@ -16,7 +16,7 @@ public final class JsInjectorFixed {
         Log.d(TAG, "Injecting marketplace enhancements");
         String script = buildEnhancementScript();
         executeJavaScript(script);
-        injectScrollDebugAndFix();
+        // injectScrollDebugAndFix(); // Disabled as it causes scrolling issues
         injectSavedListingsAccess();
         injectImageEnhancements();
         injectSearchEnterKey();
@@ -346,21 +346,15 @@ public final class JsInjectorFixed {
             "var clickedHeight = clickedImg.offsetHeight || clickedImg.naturalHeight || 0;" +
             "console.log('Clicked image size:', clickedWidth, 'x', clickedHeight);" +
             
-            // Strategy: Find the carousel/gallery container that holds the listing images
-            // Facebook uses a horizontal scrollable div or a swipeable container for product images
-            
-            // First, find the closest scrollable/carousel parent
+            // Strategy 1: Look for carousel container
             "var carouselContainer = null;" +
             "var parent = clickedImg.parentElement;" +
             "for (var i = 0; i < 15 && parent; i++) {" +
             "var style = window.getComputedStyle(parent);" +
-            // Check for scrollable container (horizontal scroll for image carousels)
             "var hasHScroll = parent.scrollWidth > parent.clientWidth + 10;" +
             "var isFlexRow = style.display === 'flex' && (style.flexDirection === 'row' || style.flexDirection === '');" +
             "var hasSnapScroll = style.scrollSnapType && style.scrollSnapType !== 'none';" +
-            // Check for navigation arrows nearby (common in carousels)
-            "var hasNavArrows = parent.querySelector('[aria-label*=\"Next\"]') || parent.querySelector('[aria-label*=\"Previous\"]') || " +
-            "parent.querySelector('[aria-label*=\"next\"]') || parent.querySelector('[aria-label*=\"previous\"]');" +
+            "var hasNavArrows = parent.querySelector('[aria-label*=\"Next\"]') || parent.querySelector('[aria-label*=\"Previous\"]');" +
             
             "if (hasHScroll || hasSnapScroll || hasNavArrows || (isFlexRow && parent.children.length > 1)) {" +
             "carouselContainer = parent;" +
@@ -370,80 +364,60 @@ public final class JsInjectorFixed {
             "parent = parent.parentElement;" +
             "}" +
             
-            // If we found a carousel, get images from it
             "if (carouselContainer) {" +
             "var carouselImgs = carouselContainer.querySelectorAll('img');" +
-            "console.log('Carousel has', carouselImgs.length, 'images');" +
             "for (var j = 0; j < carouselImgs.length; j++) {" +
             "var img = carouselImgs[j];" +
             "var src = img.src;" +
             "if (!src || !src.includes('scontent')) continue;" +
             "if (seen[src]) continue;" +
-            
-            // Size check - product images are typically large
             "var w = img.offsetWidth || img.naturalWidth || 0;" +
             "var h = img.offsetHeight || img.naturalHeight || 0;" +
-            
-            // Skip tiny images (icons, dots, etc)
             "if (w < 80 || h < 80) continue;" +
             
-            // Skip images with very different aspect ratios from clicked image (likely ads)
+            // STRICTER RATIO CHECK to avoid ads
             "var clickedRatio = clickedWidth / (clickedHeight || 1);" +
             "var imgRatio = w / (h || 1);" +
             "var ratioDiff = Math.abs(clickedRatio - imgRatio);" +
-            // If clicked image is reasonably sized, check aspect ratio similarity
-            "if (clickedWidth > 100 && ratioDiff > 1.5) {" +
-            "console.log('Skipping image with different ratio:', ratioDiff);" +
-            "continue;" +
-            "}" +
+            "if (clickedWidth > 100 && ratioDiff > 0.5) { continue; }" +
             
             "images.push(src);" +
             "seen[src] = true;" +
             "}" +
             "}" +
             
-            // Fallback: if carousel search didn't find enough, use the close-parent approach
+            // Strategy 2: Fallback (Strict nearby search)
             "if (images.length <= 1) {" +
             "console.log('Fallback: searching nearby parents...');" +
             "images = [];" +
             "seen = {};" +
-            
-            // Always include clicked image first
             "if (clickedSrc && clickedSrc.includes('scontent')) {" +
             "images.push(clickedSrc);" +
             "seen[clickedSrc] = true;" +
             "}" +
-            
-            // Search parent containers but be more selective
             "var container = clickedImg.parentElement;" +
-            "for (var i = 0; i < 6 && container; i++) {" +
+            // REDUCED DEPTH from 6 to 3 to avoid grabbing outside elements
+            "for (var i = 0; i < 3 && container; i++) {" +
             "var imgs = container.querySelectorAll('img');" +
             "for (var j = 0; j < imgs.length; j++) {" +
             "var img = imgs[j];" +
             "var src = img.src;" +
             "if (!src || !src.includes('scontent') || seen[src]) continue;" +
-            
             "var w = img.offsetWidth || img.naturalWidth || 0;" +
             "var h = img.offsetHeight || img.naturalHeight || 0;" +
-            
-            // Must be reasonably large (not icons/thumbnails)
             "if (w < 100 || h < 100) continue;" +
-            
-            // Check that it's similar size to clicked image (within 50%)
             "var sizeDiffW = Math.abs(w - clickedWidth) / (clickedWidth || 1);" +
             "var sizeDiffH = Math.abs(h - clickedHeight) / (clickedHeight || 1);" +
             "if (clickedWidth > 100 && (sizeDiffW > 0.5 || sizeDiffH > 0.5)) continue;" +
-            
             "images.push(src);" +
             "seen[src] = true;" +
             "}" +
             "container = container.parentElement;" +
-            // Stop if we found a reasonable number of images
             "if (images.length >= 3) break;" +
             "}" +
             "}" +
             
-            // Make sure clicked image is first
+            // Ensure clicked image is first
             "var clickedIndex = images.indexOf(clickedSrc);" +
             "if (clickedIndex > 0) {" +
             "images.splice(clickedIndex, 1);" +
@@ -456,13 +430,12 @@ public final class JsInjectorFixed {
             "return images;" +
             "}" +
             
-            // Click handler for images - use touch events to distinguish tap from scroll
             "var touchStartY = 0;" +
             "var touchStartTime = 0;" +
             "var touchMovedFar = false;" +
             
             "document.addEventListener('touchstart', function(e) {" +
-            "touchStartY = e.touches[0].clientY;" +
+            "touchStartY = e.touches[0].clientX;" +
             "touchStartTime = Date.now();" +
             "touchMovedFar = false;" +
             "}, { passive: true, capture: true });" +
@@ -474,7 +447,6 @@ public final class JsInjectorFixed {
             "}, { passive: true, capture: true });" +
             
             "document.addEventListener('touchend', function(e) {" +
-            // If touch moved significantly or took too long, it's a scroll not a tap
             "if (touchMovedFar || (Date.now() - touchStartTime) > 300) return;" +
             
             "var target = e.target;" +
@@ -483,6 +455,15 @@ public final class JsInjectorFixed {
             
             "var url = window.location.href;" +
             "if (url.includes('/marketplace/item/') || url.includes('/product/')) {" +
+            
+            // CHECK IF THUMBNAIL (Small image)
+            "var w = img.offsetWidth || img.naturalWidth || 0;" +
+            "var h = img.offsetHeight || img.naturalHeight || 0;" +
+            "if (w < 200 || h < 200) {" +
+            "console.log('Clicked thumbnail, allowing default behavior');" +
+            "return;" +
+            "}" +
+            
             "e.preventDefault();" +
             "e.stopPropagation();" +
             "var images = findListingImages(img);" +
