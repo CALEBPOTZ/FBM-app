@@ -40,9 +40,16 @@ jobs:
         cat app/build.gradle.kts | grep versionName
     
     - name: Setup signing key
+      env:
+        DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE }}
       run: |
-        echo "${{ secrets.DEBUG_KEYSTORE }}" | base64 -d > app/debug.keystore
-        ls -la app/debug.keystore
+        if [ -n "$DEBUG_KEYSTORE_B64" ]; then
+          echo "$DEBUG_KEYSTORE_B64" | base64 -d > app/debug.keystore
+          echo "Keystore created."
+        else
+          echo "No debug keystore secret found, skipping."
+        fi
+      continue-on-error: true
     
     - name: Build with Gradle
       run: ./gradlew assembleDebug
