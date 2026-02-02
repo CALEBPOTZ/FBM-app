@@ -149,7 +149,6 @@ public final class JsInjectorFixed {
         
         executeJavaScript(script);
     }
-    }
 
     public final void injectAntiDetection() {
         Log.d(TAG, "Injecting anti-detection script");
