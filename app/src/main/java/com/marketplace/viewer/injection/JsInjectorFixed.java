@@ -349,50 +349,59 @@ public final class JsInjectorFixed {
             "return images;" +
             "}" +
             
-            "var touchStartY = 0;" +
-            "var touchStartTime = 0;" +
-            "var touchMovedFar = false;" +
-            
-            "document.addEventListener('touchstart', function(e) {" +
-            "touchStartY = e.touches[0].clientY;" +
-            "touchStartTime = Date.now();" +
-            "touchMovedFar = false;" +
-            "}, { passive: true, capture: true });" +
-            
-            "document.addEventListener('touchmove', function(e) {" +
-            "if (Math.abs(e.touches[0].clientY - touchStartY) > 10) {" +
-            "touchMovedFar = true;" +
-            "}" +
-            "}, { passive: true, capture: true });" +
-            
-            "document.addEventListener('touchend', function(e) {" +
-            // CRITICAL: If user scrolled or held touch too long, don't interfere with normal behavior
-            "if (touchMovedFar || (Date.now() - touchStartTime) > 300) return;" +
-            
-            "var target = e.target;" +
-            "var img = target.tagName === 'IMG' ? target : target.closest('img');" +
-            "if (!img || !img.src || !img.src.includes('scontent')) return;" +
-            
+            // Use MutationObserver to attach click handlers to listing images dynamically
+            "function attachImageClickHandlers() {" +
             "var url = window.location.href;" +
-            "if (url.includes('/marketplace/item/') || url.includes('/product/')) {" +
+            "if (!url.includes('/marketplace/item/') && !url.includes('/product/')) return;" +
             
-            // CHECK IF THUMBNAIL (Small image)
+            "document.querySelectorAll('img').forEach(function(img) {" +
+            "if (img._imageHandlerAttached) return;" +
+            "if (!img.src || !img.src.includes('scontent')) return;" +
+            
             "var w = img.offsetWidth || img.naturalWidth || 0;" +
             "var h = img.offsetHeight || img.naturalHeight || 0;" +
-            "if (w < 200 || h < 200) {" +
-            "console.log('Clicked thumbnail, allowing default behavior');" +
-            "return;" +
-            "}" +
+            "if (w < 200 || h < 200) return;" + // Skip small images/thumbnails
             
-            // ONLY prevent default if we're actually going to show the viewer
+            "img._imageHandlerAttached = true;" +
+            
+            // Track touch for this specific image
+            "var touchStartY = 0;" +
+            "var touchStartTime = 0;" +
+            "var touchMoved = false;" +
+            
+            "img.addEventListener('touchstart', function(e) {" +
+            "touchStartY = e.touches[0].clientY;" +
+            "touchStartTime = Date.now();" +
+            "touchMoved = false;" +
+            "}, { passive: true });" +
+            
+            "img.addEventListener('touchmove', function(e) {" +
+            "if (Math.abs(e.touches[0].clientY - touchStartY) > 10) {" +
+            "touchMoved = true;" +
+            "}" +
+            "}, { passive: true });" +
+            
+            "img.addEventListener('touchend', function(e) {" +
+            "if (touchMoved || (Date.now() - touchStartTime) > 300) return;" +
+            
             "e.preventDefault();" +
             "e.stopPropagation();" +
             "var images = findListingImages(img);" +
             "var index = images.indexOf(img.src);" +
             "if (index === -1) index = 0;" +
             "showImageViewer(images, index);" +
+            "});" +
+            "});" +
             "}" +
-            "}, { capture: true });" +
+            
+            // Run on page load
+            "attachImageClickHandlers();" +
+            
+            // Watch for new images being added
+            "var observer = new MutationObserver(function() {" +
+            "attachImageClickHandlers();" +
+            "});" +
+            "observer.observe(document.body, { childList: true, subtree: true });" +
             
             "console.log('Image enhancements applied');" +
             "} catch(e) { console.log('Image enhancement error:', e); }" +
