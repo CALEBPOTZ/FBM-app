@@ -81,10 +81,8 @@ public final class MarketplaceWebView extends WebView {
         // Hardware acceleration
         setLayerType(LAYER_TYPE_HARDWARE, null);
         
-        // Enable debugging in debug builds
-        // Note: This requires BuildConfig which is auto-generated
-        // For now, we'll skip this or use a different approach
-        // WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
+        // Enable WebView debugging (allows Chrome DevTools inspection)
+        WebView.setWebContentsDebuggingEnabled(true);
     }
 
     /**

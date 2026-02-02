@@ -48,22 +48,34 @@ public final class JsInjectorFixed {
     }
 
     private void injectScrollDebugAndFix() {
-        Log.d(TAG, "Injecting minimal scroll fix for main page");
+        Log.d(TAG, "Injecting scroll fix for main page and dialogs");
         String script = "(function() {" +
             "try {" +
             "if (window._scrollFixAdded) return;" +
             "window._scrollFixAdded = true;" +
-            "console.log('Minimal scroll fix loading...');" +
+            "console.log('Scroll fix loading...');" +
             
-            // ONLY CSS - no JavaScript manipulation that breaks dialogs
+            // CSS to fix scrolling on both main page and dialogs
             "var style = document.createElement('style');" +
             "style.id = 'marketplace-scroll-fix';" +
             "style.textContent = `" +
             "  html, body { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; height: 100% !important; }" +
+            // Target the drawer/sheet container - Facebook often uses these patterns
+            "  [role=\"dialog\"], [role=\"dialog\"] > div, [role=\"complementary\"] {" +
+            "    overflow-y: auto !important;" +
+            "    -webkit-overflow-scrolling: touch !important;" +
+            "    overscroll-behavior: contain !important;" +
+            "  }" +
+            // Target fixed-position containers that might be the drawer
+            "  div[style*=\"position: fixed\"], div[style*=\"position:fixed\"] {" +
+            "    overflow-y: auto !important;" +
+            "    -webkit-overflow-scrolling: touch !important;" +
+            "  }" +
             "`;" +
             "if (!document.getElementById('marketplace-scroll-fix')) { document.head.appendChild(style); }" +
             
-            "console.log('Minimal scroll fix applied');" +
+            "console.log('Scroll fix applied');" +
+            "console.log('To debug: Open chrome://inspect in Chrome desktop, select this WebView');" +
             "} catch(e) { console.log('Scroll fix error:', e); }" +
             "})();";
         
