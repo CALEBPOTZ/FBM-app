@@ -48,23 +48,50 @@ public final class JsInjectorFixed {
     }
 
     private void injectScrollDebugAndFix() {
-        Log.d(TAG, "Injecting minimal scroll enhancement");
+        Log.d(TAG, "Injecting scroll fix with aggressive viewport manipulation");
         String script = "(function() {" +
             "try {" +
             "if (window._scrollFixAdded) return;" +
             "window._scrollFixAdded = true;" +
-            "console.log('Minimal scroll enhancement loading...');" +
+            "console.log('Aggressive scroll fix loading...');" +
             
-            // Very minimal CSS - just ensure smooth scrolling is enabled
+            // Force viewport to allow user scaling (helps with touch events)
+            "var viewport = document.querySelector('meta[name=\"viewport\"]');" +
+            "if (viewport) {" +
+            "viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes');" +
+            "} else {" +
+            "var meta = document.createElement('meta');" +
+            "meta.name = 'viewport';" +
+            "meta.content = 'width=device-width, initial-scale=1.0, user-scalable=yes';" +
+            "document.head.appendChild(meta);" +
+            "}" +
+            
+            // Aggressive CSS to force scrolling
             "var style = document.createElement('style');" +
             "style.id = 'marketplace-scroll-fix';" +
             "style.textContent = `" +
-            "  html, body { -webkit-overflow-scrolling: touch !important; }" +
+            "  * { -webkit-overflow-scrolling: touch !important; }" +
+            "  html, body { overflow: visible !important; height: auto !important; }" +
+            "  body { touch-action: pan-y !important; }" +
+            "  [role=\"dialog\"], [role=\"main\"], [role=\"complementary\"] {" +
+            "    overflow-y: auto !important;" +
+            "    -webkit-overflow-scrolling: touch !important;" +
+            "    overscroll-behavior: contain !important;" +
+            "  }" +
             "`;" +
             "if (!document.getElementById('marketplace-scroll-fix')) { document.head.appendChild(style); }" +
             
-            "console.log('Minimal scroll enhancement applied');" +
-            "} catch(e) { console.log('Scroll enhancement error:', e); }" +
+            // Force remove any overflow:hidden on body that Facebook might add
+            "var observer = new MutationObserver(function() {" +
+            "if (document.body.style.overflow === 'hidden') {" +
+            "document.body.style.overflow = 'visible';" +
+            "console.log('Removed overflow:hidden from body');" +
+            "}" +
+            "});" +
+            "observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });" +
+            
+            "console.log('Aggressive scroll fix applied');" +
+            "} catch(e) { console.log('Scroll fix error:', e); }" +
             "})();";
         
         executeJavaScript(script);

@@ -58,10 +58,10 @@ public final class MarketplaceWebView extends WebView {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setSupportMultipleWindows(true);
         
-        // Zoom settings (disable zoom for better Facebook experience)
-        settings.setSupportZoom(false);
-        settings.setBuiltInZoomControls(false);
-        settings.setDisplayZoomControls(false);
+        // Zoom settings (ENABLE zoom for better touch handling)
+        settings.setSupportZoom(true);
+        settings.setBuiltInZoomControls(true);
+        settings.setDisplayZoomControls(false); // Hide the zoom controls UI
         
         // Form and image settings
         settings.setSaveFormData(true);
