@@ -78,9 +78,9 @@ public final class MarketplaceWebView extends WebView {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         
-        // Hardware acceleration
-        // Switched to SOFTWARE to fix scroll locking on modal/dialog overlays
-        setLayerType(LAYER_TYPE_SOFTWARE, null);
+        // Hardware acceleration - ENABLED for better performance and scroll handling
+        // Note: SOFTWARE layer was causing scroll issues on listing details pages
+        setLayerType(LAYER_TYPE_HARDWARE, null);
         setScrollBarStyle(SCROLLBARS_INSIDE_OVERLAY);
         setScrollbarFadingEnabled(true);
 
