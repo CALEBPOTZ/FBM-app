@@ -14,9 +14,10 @@ public final class JsInjectorFixed {
 
     public final void injectMarketplaceEnhancements() {
         Log.d(TAG, "Injecting marketplace enhancements");
-        String script = buildEnhancementScript();
-        executeJavaScript(script);
-        injectScrollDebugAndFix(); // Re-enabled with fix
+        // COMPLETELY DISABLED - TESTING IF CSS IS BLOCKING SCROLL
+        // String script = buildEnhancementScript();
+        // executeJavaScript(script);
+        // injectScrollDebugAndFix(); // Re-enabled with fix
         // TEMPORARILY DISABLED TO ISOLATE SCROLL BLOCKING ISSUE
         // injectSavedListingsAccess();
         // injectImageEnhancements();
@@ -24,9 +25,7 @@ public final class JsInjectorFixed {
         // injectTextareaFix();
         // injectScrollToTop();
         // injectSideNavigation();
-        injectTextareaFix();
-        injectScrollToTop();
-        injectSideNavigation();
+        Log.d(TAG, "All enhancements disabled for testing");
     }
 
     private String buildEnhancementScript() {
