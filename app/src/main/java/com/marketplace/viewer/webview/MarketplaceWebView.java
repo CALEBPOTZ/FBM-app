@@ -58,10 +58,10 @@ public final class MarketplaceWebView extends WebView {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setSupportMultipleWindows(true);
         
-        // Zoom settings (ENABLE zoom for better touch handling)
-        settings.setSupportZoom(true);
-        settings.setBuiltInZoomControls(true);
-        settings.setDisplayZoomControls(false); // Hide the zoom controls UI
+        // Zoom settings (disable zoom for better Facebook experience)
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
         
         // Form and image settings
         settings.setSaveFormData(true);
@@ -78,15 +78,8 @@ public final class MarketplaceWebView extends WebView {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         
-        // Hardware acceleration - ENABLED for better performance and scroll handling
-        // Note: SOFTWARE layer was causing scroll issues on listing details pages
+        // Hardware acceleration
         setLayerType(LAYER_TYPE_HARDWARE, null);
-        setScrollBarStyle(SCROLLBARS_INSIDE_OVERLAY);
-        setScrollbarFadingEnabled(true);
-
-        // Explicitly enable vertical scrolling
-        setVerticalScrollBarEnabled(true);
-        setHorizontalScrollBarEnabled(false);
         
         // Enable debugging in debug builds
         // Note: This requires BuildConfig which is auto-generated

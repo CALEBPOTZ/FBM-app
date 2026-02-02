@@ -16,7 +16,7 @@ public final class JsInjectorFixed {
         Log.d(TAG, "Injecting marketplace enhancements");
         String script = buildEnhancementScript();
         executeJavaScript(script);
-        injectScrollDebugAndFix();
+        // REMOVED injectScrollDebugAndFix() - was causing scroll blocking
         injectSavedListingsAccess();
         injectImageEnhancements();
         injectSearchEnterKey();
