@@ -16,7 +16,7 @@ public final class JsInjectorFixed {
         Log.d(TAG, "Injecting marketplace enhancements");
         String script = buildEnhancementScript();
         executeJavaScript(script);
-        // injectScrollDebugAndFix(); // Re-enabled with fix
+        injectScrollDebugAndFix(); // Re-enabled with fix
         injectSavedListingsAccess();
         injectImageEnhancements();
         injectSearchEnterKey();
@@ -60,7 +60,7 @@ public final class JsInjectorFixed {
             "style.id = 'marketplace-scroll-fix';" +
             "style.textContent = `" +
             "  html, body { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; height: 100% !important; }" +
-            "  [role=\"dialog\"] { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; overflow-y: scroll !important; -webkit-overflow-scrolling: touch !important; z-index: 9999 !important; }" +
+            "  [role=\"dialog\"] { overflow-y: scroll !important; -webkit-overflow-scrolling: touch !important; z-index: 9999 !important; }" +
             "  [role=\"dialog\"] > div { height: auto !important; min-height: 100% !important; }" +
             "`;" +
             "if (!document.getElementById('marketplace-scroll-fix')) { document.head.appendChild(style); }" +
@@ -74,8 +74,6 @@ public final class JsInjectorFixed {
             "  dialogs.forEach(function(dialog) {" +
             "    dialog.style.overflowY = 'scroll';" +
             "    dialog.style.webkitOverflowScrolling = 'touch';" +
-            "    dialog.style.position = 'fixed';" +
-            "    dialog.style.height = '100%';" +
             "  });" +
             "}" +
 
