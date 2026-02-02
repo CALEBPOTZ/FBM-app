@@ -59,9 +59,9 @@ public final class JsInjectorFixed {
             "var style = document.createElement('style');" +
             "style.id = 'marketplace-scroll-fix';" +
             "style.textContent = `" +
-            "  html, body { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; height: auto !important; position: static !important; }" +
-            "  [data-pagelet=\"MarketplacePDP\"] { overflow: visible !important; height: auto !important; }" +
-            "  [role=\"dialog\"] { position: absolute !important; overflow-y: auto !important; }" +
+            "  html, body { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; height: 100% !important; }" +
+            "  [role=\"dialog\"] { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; overflow-y: scroll !important; -webkit-overflow-scrolling: touch !important; z-index: 9999 !important; }" +
+            "  [role=\"dialog\"] > div { height: auto !important; min-height: 100% !important; }" +
             "`;" +
             "if (!document.getElementById('marketplace-scroll-fix')) { document.head.appendChild(style); }" +
 
@@ -69,24 +69,14 @@ public final class JsInjectorFixed {
             "  var url = window.location.href;" +
             "  if (!url.includes('/marketplace/item/') && !url.includes('/product/')) return;" +
             
-            "  document.body.style.overflow = 'auto';" +
-            "  document.documentElement.style.overflow = 'auto';" +
-            "  document.body.style.position = 'static';" +
-            
-            "  // Unlock potential blockers" +
-            "  var elements = document.querySelectorAll('*');" +
-            "  for (var i = 0; i < elements.length; i++) {" +
-            "    var el = elements[i];" +
-            "    var style = window.getComputedStyle(el);" +
-            "    if (style.position === 'fixed' && style.height === window.innerHeight + 'px') {" +
-            "       // Check if this is the main scroller wrapper" +
-            "       if (el.getAttribute('role') !== 'banner' && !el.className.includes('marketplace')) {" +
-            "           el.style.position = 'absolute';" +
-            "           el.style.height = 'auto';" +
-            "           el.style.overflowY = 'auto';" +
-            "       }" +
-            "    }" +
-            "  }" +
+            // Force dialogs to be scrollable
+            "  var dialogs = document.querySelectorAll('[role=\"dialog\"]');" +
+            "  dialogs.forEach(function(dialog) {" +
+            "    dialog.style.overflowY = 'scroll';" +
+            "    dialog.style.webkitOverflowScrolling = 'touch';" +
+            "    dialog.style.position = 'fixed';" +
+            "    dialog.style.height = '100%';" +
+            "  });" +
             "}" +
 
             // Aggressive interval
