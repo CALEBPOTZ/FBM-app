@@ -16,7 +16,7 @@ public final class JsInjectorFixed {
         Log.d(TAG, "Injecting marketplace enhancements");
         String script = buildEnhancementScript();
         executeJavaScript(script);
-        injectScrollDebugAndFix(); // Re-enabled with fix
+        // injectScrollDebugAndFix(); // Re-enabled with fix
         injectSavedListingsAccess();
         injectImageEnhancements();
         injectSearchEnterKey();
@@ -373,7 +373,7 @@ public final class JsInjectorFixed {
             "var touchMovedFar = false;" +
             
             "document.addEventListener('touchstart', function(e) {" +
-            "touchStartY = e.touches[0].clientX;" +
+            "touchStartY = e.touches[0].clientY;" +
             "touchStartTime = Date.now();" +
             "touchMovedFar = false;" +
             "}, { passive: true, capture: true });" +
