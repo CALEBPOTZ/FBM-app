@@ -55,14 +55,15 @@ public final class JsInjectorFixed {
             "window._scrollFixAdded = true;" +
             "console.log('Scroll fix loading...');" +
             
-            // Simple, aggressive CSS override for the listing container
+            // Nuclear CSS Override
             "var style = document.createElement('style');" +
+            "style.id = 'marketplace-scroll-fix';" +
             "style.textContent = `" +
-            "  html, body { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; height: auto !important; }" +
-            // Fix for the specific listing container that often locks up
+            "  html, body { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; height: auto !important; position: static !important; }" +
             "  [data-pagelet=\"MarketplacePDP\"] { overflow: visible !important; height: auto !important; }" +
+            "  [role=\"dialog\"] { position: absolute !important; overflow-y: auto !important; }" +
             "`;" +
-            "document.head.appendChild(style);" +
+            "if (!document.getElementById('marketplace-scroll-fix')) { document.head.appendChild(style); }" +
 
             "function unlockScroll() {" +
             "  var url = window.location.href;" +
@@ -71,12 +72,25 @@ public final class JsInjectorFixed {
             "  document.body.style.overflow = 'auto';" +
             "  document.documentElement.style.overflow = 'auto';" +
             "  document.body.style.position = 'static';" +
+            
+            "  // Unlock potential blockers" +
+            "  var elements = document.querySelectorAll('*');" +
+            "  for (var i = 0; i < elements.length; i++) {" +
+            "    var el = elements[i];" +
+            "    var style = window.getComputedStyle(el);" +
+            "    if (style.position === 'fixed' && style.height === window.innerHeight + 'px') {" +
+            "       // Check if this is the main scroller wrapper" +
+            "       if (el.getAttribute('role') !== 'banner' && !el.className.includes('marketplace')) {" +
+            "           el.style.position = 'absolute';" +
+            "           el.style.height = 'auto';" +
+            "           el.style.overflowY = 'auto';" +
+            "       }" +
+            "    }" +
+            "  }" +
             "}" +
 
-            // Run on load and periodically
-            "setTimeout(unlockScroll, 1000);" +
-            "setTimeout(unlockScroll, 3000);" +
-            "setInterval(unlockScroll, 5000);" +
+            // Aggressive interval
+            "setInterval(unlockScroll, 1000);" +
             
             "console.log('Scroll fix applied');" +
             "} catch(e) { console.log('Scroll fix error:', e); }" +
