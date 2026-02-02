@@ -17,10 +17,13 @@ public final class JsInjectorFixed {
         String script = buildEnhancementScript();
         executeJavaScript(script);
         injectScrollDebugAndFix(); // Re-enabled with fix
-        injectSavedListingsAccess();
-        // TEMPORARILY DISABLED TO TEST IF THIS IS BLOCKING SCROLL
+        // TEMPORARILY DISABLED TO ISOLATE SCROLL BLOCKING ISSUE
+        // injectSavedListingsAccess();
         // injectImageEnhancements();
-        injectSearchEnterKey();
+        // injectSearchEnterKey();
+        // injectTextareaFix();
+        // injectScrollToTop();
+        // injectSideNavigation();
         injectTextareaFix();
         injectScrollToTop();
         injectSideNavigation();
