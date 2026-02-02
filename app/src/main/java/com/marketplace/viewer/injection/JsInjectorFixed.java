@@ -48,40 +48,23 @@ public final class JsInjectorFixed {
     }
 
     private void injectScrollDebugAndFix() {
-        Log.d(TAG, "Injecting scroll fix");
+        Log.d(TAG, "Injecting minimal scroll enhancement");
         String script = "(function() {" +
             "try {" +
             "if (window._scrollFixAdded) return;" +
             "window._scrollFixAdded = true;" +
-            "console.log('Scroll fix loading...');" +
+            "console.log('Minimal scroll enhancement loading...');" +
             
-            // Nuclear CSS Override
+            // Very minimal CSS - just ensure smooth scrolling is enabled
             "var style = document.createElement('style');" +
             "style.id = 'marketplace-scroll-fix';" +
             "style.textContent = `" +
-            "  html, body { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; height: 100% !important; }" +
-            "  [role=\"dialog\"] { overflow-y: scroll !important; -webkit-overflow-scrolling: touch !important; z-index: 9999 !important; }" +
-            "  [role=\"dialog\"] > div { height: auto !important; min-height: 100% !important; }" +
+            "  html, body { -webkit-overflow-scrolling: touch !important; }" +
             "`;" +
             "if (!document.getElementById('marketplace-scroll-fix')) { document.head.appendChild(style); }" +
-
-            "function unlockScroll() {" +
-            "  var url = window.location.href;" +
-            "  if (!url.includes('/marketplace/item/') && !url.includes('/product/')) return;" +
             
-            // Force dialogs to be scrollable
-            "  var dialogs = document.querySelectorAll('[role=\"dialog\"]');" +
-            "  dialogs.forEach(function(dialog) {" +
-            "    dialog.style.overflowY = 'scroll';" +
-            "    dialog.style.webkitOverflowScrolling = 'touch';" +
-            "  });" +
-            "}" +
-
-            // Aggressive interval
-            "setInterval(unlockScroll, 1000);" +
-            
-            "console.log('Scroll fix applied');" +
-            "} catch(e) { console.log('Scroll fix error:', e); }" +
+            "console.log('Minimal scroll enhancement applied');" +
+            "} catch(e) { console.log('Scroll enhancement error:', e); }" +
             "})();";
         
         executeJavaScript(script);
@@ -383,6 +366,7 @@ public final class JsInjectorFixed {
             "}, { passive: true, capture: true });" +
             
             "document.addEventListener('touchend', function(e) {" +
+            // CRITICAL: If user scrolled or held touch too long, don't interfere with normal behavior
             "if (touchMovedFar || (Date.now() - touchStartTime) > 300) return;" +
             
             "var target = e.target;" +
@@ -400,6 +384,7 @@ public final class JsInjectorFixed {
             "return;" +
             "}" +
             
+            // ONLY prevent default if we're actually going to show the viewer
             "e.preventDefault();" +
             "e.stopPropagation();" +
             "var images = findListingImages(img);" +
