@@ -16,7 +16,7 @@ public final class JsInjectorFixed {
         Log.d(TAG, "Injecting marketplace enhancements");
         String script = buildEnhancementScript();
         executeJavaScript(script);
-        // REMOVED injectScrollDebugAndFix() - was causing scroll blocking
+        injectScrollDebugAndFix(); // Minimal CSS-only fix for main page
         injectSavedListingsAccess();
         injectImageEnhancements();
         injectSearchEnterKey();
@@ -48,49 +48,22 @@ public final class JsInjectorFixed {
     }
 
     private void injectScrollDebugAndFix() {
-        Log.d(TAG, "Injecting scroll fix with aggressive viewport manipulation");
+        Log.d(TAG, "Injecting minimal scroll fix for main page");
         String script = "(function() {" +
             "try {" +
             "if (window._scrollFixAdded) return;" +
             "window._scrollFixAdded = true;" +
-            "console.log('Aggressive scroll fix loading...');" +
+            "console.log('Minimal scroll fix loading...');" +
             
-            // Force viewport to allow user scaling (helps with touch events)
-            "var viewport = document.querySelector('meta[name=\"viewport\"]');" +
-            "if (viewport) {" +
-            "viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes');" +
-            "} else {" +
-            "var meta = document.createElement('meta');" +
-            "meta.name = 'viewport';" +
-            "meta.content = 'width=device-width, initial-scale=1.0, user-scalable=yes';" +
-            "document.head.appendChild(meta);" +
-            "}" +
-            
-            // Aggressive CSS to force scrolling
+            // ONLY CSS - no JavaScript manipulation that breaks dialogs
             "var style = document.createElement('style');" +
             "style.id = 'marketplace-scroll-fix';" +
             "style.textContent = `" +
-            "  * { -webkit-overflow-scrolling: touch !important; }" +
-            "  html, body { overflow: visible !important; height: auto !important; }" +
-            "  body { touch-action: pan-y !important; }" +
-            "  [role=\"dialog\"], [role=\"main\"], [role=\"complementary\"] {" +
-            "    overflow-y: auto !important;" +
-            "    -webkit-overflow-scrolling: touch !important;" +
-            "    overscroll-behavior: contain !important;" +
-            "  }" +
+            "  html, body { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; height: 100% !important; }" +
             "`;" +
             "if (!document.getElementById('marketplace-scroll-fix')) { document.head.appendChild(style); }" +
             
-            // Force remove any overflow:hidden on body that Facebook might add
-            "var observer = new MutationObserver(function() {" +
-            "if (document.body.style.overflow === 'hidden') {" +
-            "document.body.style.overflow = 'visible';" +
-            "console.log('Removed overflow:hidden from body');" +
-            "}" +
-            "});" +
-            "observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });" +
-            
-            "console.log('Aggressive scroll fix applied');" +
+            "console.log('Minimal scroll fix applied');" +
             "} catch(e) { console.log('Scroll fix error:', e); }" +
             "})();";
         
