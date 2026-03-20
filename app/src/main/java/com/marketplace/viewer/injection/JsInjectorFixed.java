@@ -179,9 +179,12 @@ public final class JsInjectorFixed {
             // Expose close function globally for back button handling
             "window.closeMarketplaceImageViewer = closeImageViewer;" +
             
-            "function showImageViewer(images, index) {" +
+            "function showImageViewer(images, index, clickedImg) {" +
             "window._marketplaceImages = images;" +
             "window._marketplaceImageIndex = index;" +
+            // Find and store carousel navigation for on-demand image loading
+            "window._marketplaceCarouselNav = clickedImg ? findCarouselNav(clickedImg) : null;" +
+            "window._marketplaceImageTotal = getImageTotal() || images.length;" +
             "closeImageViewer();" +
             
             "var viewer = document.createElement('div');" +
@@ -209,15 +212,16 @@ public final class JsInjectorFixed {
             
             "var controls = document.createElement('div');" +
             "controls.className = 'marketplace-image-controls';" +
-            "controls.textContent = (index + 1) + ' / ' + images.length;" +
+            "var total = window._marketplaceImageTotal || images.length;" +
+            "controls.textContent = (index + 1) + ' / ' + total;" +
             
             "viewer.appendChild(img);" +
             "viewer.appendChild(closeBtn);" +
             "viewer.appendChild(downloadBtn);" +
             "viewer.appendChild(controls);" +
             
-            // Add navigation buttons if multiple images
-            "if (images.length > 1) {" +
+            // Add navigation buttons if multiple images or carousel nav exists
+            "if (images.length > 1 || window._marketplaceCarouselNav) {" +
             "var leftBtn = document.createElement('div');" +
             "leftBtn.className = 'marketplace-image-nav-button marketplace-image-nav-left';" +
             "leftBtn.innerHTML = '&#8249;';" +
@@ -262,7 +266,7 @@ public final class JsInjectorFixed {
             "var diffX = touchStartX - touchEndX;" +
             "var diffY = Math.abs(touchStartY - e.changedTouches[0].clientY);" +
             // Only navigate if horizontal swipe and not too much vertical movement
-            "if (Math.abs(diffX) > 50 && diffY < 100 && images.length > 1) {" +
+            "if (Math.abs(diffX) > 50 && diffY < 100 && (images.length > 1 || window._marketplaceCarouselNav)) {" +
             "if (diffX > 0) { navigateImage(1); }" +
             "else { navigateImage(-1); }" +
             "}" +
@@ -272,13 +276,38 @@ public final class JsInjectorFixed {
             "}" +
             
             "function navigateImage(dir) {" +
+            // Click Facebook's carousel next/prev button to load the real next image
+            "var nav = window._marketplaceCarouselNav;" +
+            "if (nav) {" +
+            "var btn = dir > 0 ? nav.next : nav.prev;" +
+            "if (btn) {" +
+            "btn.click();" +
+            // Wait for Facebook to load the new image, then update viewer
+            "setTimeout(function() {" +
+            "var newImg = findCurrentCarouselImage(nav.container);" +
+            "if (newImg) {" +
+            "window._marketplaceImageIndex += dir;" +
+            "var viewer = window._marketplaceImageViewer;" +
+            "if (viewer) {" +
+            "var img = viewer.querySelector('img');" +
+            "var controls = viewer.querySelector('.marketplace-image-controls');" +
+            "if (img) img.src = newImg;" +
+            "if (controls) {" +
+            "var total = window._marketplaceImageTotal || '?';" +
+            "controls.textContent = (window._marketplaceImageIndex + 1) + ' / ' + total;" +
+            "}" +
+            "}" +
+            "}" +
+            "}, 400);" +
+            "}" +
+            "} else {" +
+            // Fallback: use pre-collected images array if no carousel nav found
             "var images = window._marketplaceImages;" +
             "var index = window._marketplaceImageIndex;" +
             "index += dir;" +
             "if (index < 0) index = images.length - 1;" +
             "else if (index >= images.length) index = 0;" +
             "window._marketplaceImageIndex = index;" +
-            
             "var viewer = window._marketplaceImageViewer;" +
             "if (viewer) {" +
             "var img = viewer.querySelector('img');" +
@@ -287,7 +316,52 @@ public final class JsInjectorFixed {
             "if (controls) controls.textContent = (index + 1) + ' / ' + images.length;" +
             "}" +
             "}" +
+            "}" +
             
+            // Find Facebook's carousel next/prev buttons
+            "function findCarouselNav(img) {" +
+            "var parent = img.parentElement;" +
+            "for (var i = 0; i < 10 && parent; i++) {" +
+            "if (parent.getAttribute && parent.getAttribute('role') === 'main') break;" +
+            "var next = parent.querySelector('[aria-label*=\"Next\"], [aria-label*=\"next\"], [data-testid*=\"next\"]');" +
+            "var prev = parent.querySelector('[aria-label*=\"Previous\"], [aria-label*=\"previous\"], [aria-label*=\"Back\"], [data-testid*=\"prev\"]');" +
+            "if (next || prev) {" +
+            "return { container: parent, next: next, prev: prev };" +
+            "}" +
+            "parent = parent.parentElement;" +
+            "}" +
+            "return null;" +
+            "}" +
+
+            // Find the currently visible large image in the carousel container
+            "function findCurrentCarouselImage(container) {" +
+            "var imgs = container.querySelectorAll('img');" +
+            "var best = null; var bestArea = 0;" +
+            "for (var i = 0; i < imgs.length; i++) {" +
+            "var img = imgs[i];" +
+            "if (!img.src || !img.src.includes('scontent')) continue;" +
+            "var w = img.offsetWidth || img.naturalWidth || 0;" +
+            "var h = img.offsetHeight || img.naturalHeight || 0;" +
+            "var area = w * h;" +
+            "if (area > bestArea) { bestArea = area; best = img.src; }" +
+            "}" +
+            "return best;" +
+            "}" +
+
+            // Try to find total image count from page indicators
+            "function getImageTotal() {" +
+            "var indicators = document.querySelectorAll('[aria-label*=\"photo\"], [aria-label*=\"image\"], [aria-label*=\"Photo\"]');" +
+            "for (var i = 0; i < indicators.length; i++) {" +
+            "var text = indicators[i].textContent || indicators[i].getAttribute('aria-label') || '';" +
+            "var match = text.match(/(\\d+)\\s*(?:of|\\/)\\s*(\\d+)/);" +
+            "if (match) return parseInt(match[2]);" +
+            "}" +
+            // Also check for dot indicators
+            "var dots = document.querySelectorAll('[role=\"tablist\"] [role=\"tab\"], .carousel-dots > *, [data-testid*=\"indicator\"] > *');" +
+            "if (dots.length > 1) return dots.length;" +
+            "return null;" +
+            "}" +
+
             "function findListingImages(clickedImg) {" +
             "var images = [];" +
             "var seen = {};" +
@@ -416,14 +490,29 @@ public final class JsInjectorFixed {
             "}, { passive: true });" +
             
             "img.addEventListener('touchend', function(e) {" +
-            "if (touchMoved || (Date.now() - touchStartTime) > 300) return;" +
+            "var dx = e.changedTouches[0].clientX - touchStartX;" +
+            "var dy = Math.abs(e.changedTouches[0].clientY - touchStartY);" +
+            "var elapsed = Date.now() - touchStartTime;" +
 
+            // Horizontal swipe on listing image: navigate carousel
+            "if (Math.abs(dx) > 40 && dy < Math.abs(dx) && touchMoved) {" +
+            "e.preventDefault(); e.stopPropagation();" +
+            "var nav = findCarouselNav(img);" +
+            "if (nav) {" +
+            "var btn = dx < 0 ? nav.next : nav.prev;" +
+            "if (btn) btn.click();" +
+            "}" +
+            "return;" +
+            "}" +
+
+            // Tap: open fullscreen viewer
+            "if (touchMoved || elapsed > 300) return;" +
             "e.preventDefault();" +
             "e.stopPropagation();" +
             "var images = findListingImages(img);" +
             "var index = images.indexOf(img.src);" +
             "if (index === -1) index = 0;" +
-            "showImageViewer(images, index);" +
+            "showImageViewer(images, index, img);" +
             "}, { passive: false });" +
             "});" +
             "}" +
