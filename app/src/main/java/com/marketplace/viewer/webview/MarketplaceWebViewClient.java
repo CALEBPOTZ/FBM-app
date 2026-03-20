@@ -13,6 +13,7 @@ public class MarketplaceWebViewClient extends WebViewClient {
     private static final String TAG = "MarketplaceWebViewClient";
     
     private final Callbacks callbacks;
+    private boolean isHandlingMessengerRedirect = false;
 
     public interface Callbacks {
         void onLoginRequired();
@@ -102,9 +103,10 @@ public class MarketplaceWebViewClient extends WebViewClient {
     public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
         super.doUpdateVisitedHistory(view, url, isReload);
         Log.d(TAG, "History updated: " + url + " (reload=" + isReload + ")");
-        
-        if (UrlConfig.isMessengerUrl(url)) {
+
+        if (UrlConfig.isMessengerUrl(url) && !isHandlingMessengerRedirect) {
             Log.d(TAG, "Messenger URL detected in history update: " + url);
+            isHandlingMessengerRedirect = true;
             if (callbacks != null) {
                 callbacks.onMessengerLink(url);
             }
@@ -113,6 +115,7 @@ public class MarketplaceWebViewClient extends WebViewClient {
             if (view.canGoBack()) {
                 view.goBack();
             }
+            isHandlingMessengerRedirect = false;
         }
     }
 }

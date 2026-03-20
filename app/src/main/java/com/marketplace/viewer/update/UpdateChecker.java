@@ -1,7 +1,6 @@
 package com.marketplace.viewer.update;
 
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -12,9 +11,15 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
+
+import com.marketplace.viewer.R;
 
 import com.marketplace.viewer.BuildConfig;
 
@@ -43,7 +48,9 @@ public class UpdateChecker {
     private final Context context;
     private final ExecutorService executor;
     private final Handler mainHandler;
-    private ProgressDialog progressDialog;
+    private AlertDialog progressDialog;
+    private ProgressBar downloadProgressBar;
+    private TextView downloadMessage;
     private UpdateCallback callback;
 
     public interface UpdateCallback {
@@ -137,14 +144,14 @@ public class UpdateChecker {
 
             int responseCode = connection.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_OK) {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    return response.toString();
                 }
-                reader.close();
-                return response.toString();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error fetching release", e);
@@ -251,11 +258,29 @@ public class UpdateChecker {
                 }
             }
             
-            Log.d(TAG, "Falling back to string comparison");
-            return !latest.equals(current);
+            // Semantic version comparison fallback
+            Log.d(TAG, "Falling back to semantic version comparison");
+            String[] latestParts = latest.split("\\.");
+            String[] currentParts = current.split("\\.");
+            int length = Math.max(latestParts.length, currentParts.length);
+            for (int i = 0; i < length; i++) {
+                int l = i < latestParts.length ? parseIntSafe(latestParts[i]) : 0;
+                int c = i < currentParts.length ? parseIntSafe(currentParts[i]) : 0;
+                if (l > c) return true;
+                if (l < c) return false;
+            }
+            return false;
         } catch (Exception e) {
             Log.e(TAG, "Error comparing versions", e);
             return false;
+        }
+    }
+
+    private int parseIntSafe(String s) {
+        try {
+            return Integer.parseInt(s.replaceAll("[^0-9]", ""));
+        } catch (NumberFormatException e) {
+            return 0;
         }
     }
 
@@ -322,17 +347,19 @@ public class UpdateChecker {
     }
 
     private void downloadAndInstallApk(String downloadUrl, String version) {
-        // Show progress dialog
-        progressDialog = new ProgressDialog(context);
-        progressDialog.setTitle("Downloading Update");
-        progressDialog.setMessage("Downloading version " + version + "...");
-        progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        progressDialog.setProgress(0);
-        progressDialog.setMax(100);
-        progressDialog.setCancelable(false);
-        progressDialog.setButton(ProgressDialog.BUTTON_NEGATIVE, "Cancel", (dialog, which) -> {
-            dialog.dismiss();
-        });
+        // Show progress dialog using AlertDialog with custom layout
+        View progressView = LayoutInflater.from(context).inflate(R.layout.dialog_download_progress, null);
+        downloadProgressBar = progressView.findViewById(R.id.downloadProgressBar);
+        downloadMessage = progressView.findViewById(R.id.downloadMessage);
+        downloadMessage.setText("Downloading version " + version + "...");
+        downloadProgressBar.setProgress(0);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Downloading Update");
+        builder.setView(progressView);
+        builder.setCancelable(false);
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+        progressDialog = builder.create();
         progressDialog.show();
 
         executor.execute(() -> {
@@ -344,24 +371,10 @@ public class UpdateChecker {
                 URL url = new URL(downloadUrl);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
+                connection.setInstanceFollowRedirects(true);
                 connection.setConnectTimeout(30000);
                 connection.setReadTimeout(30000);
                 connection.connect();
-
-                int responseCode = connection.getResponseCode();
-                
-                // Handle redirect
-                if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP || 
-                    responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
-                    responseCode == 302 || responseCode == 307) {
-                    String redirectUrl = connection.getHeaderField("Location");
-                    connection.disconnect();
-                    url = new URL(redirectUrl);
-                    connection = (HttpURLConnection) url.openConnection();
-                    connection.setConnectTimeout(30000);
-                    connection.setReadTimeout(30000);
-                    connection.connect();
-                }
 
                 int fileLength = connection.getContentLength();
                 
@@ -401,8 +414,8 @@ public class UpdateChecker {
                         final int progress = (int) (total * 100 / fileLength);
                         mainHandler.post(() -> {
                             if (progressDialog != null && progressDialog.isShowing()) {
-                                progressDialog.setProgress(progress);
-                                progressDialog.setMessage("Downloading... " + progress + "%");
+                                if (downloadProgressBar != null) downloadProgressBar.setProgress(progress);
+                                if (downloadMessage != null) downloadMessage.setText("Downloading... " + progress + "%");
                             }
                             if (callback != null) {
                                 callback.onUpdateDownloadProgress(progress);
@@ -412,8 +425,6 @@ public class UpdateChecker {
                 }
                 
                 output.flush();
-                output.close();
-                input.close();
                 
                 Log.d(TAG, "Download complete: " + apkFile.getAbsolutePath());
                 
@@ -436,7 +447,7 @@ public class UpdateChecker {
                     if (callback != null) {
                         callback.onUpdateDownloadComplete(false);
                     }
-                    if (!e.getMessage().equals("Download cancelled")) {
+                    if (!"Download cancelled".equals(e.getMessage())) {
                         Toast.makeText(context, "Download failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
@@ -473,6 +484,10 @@ public class UpdateChecker {
             Log.e(TAG, "Error installing APK", e);
             Toast.makeText(context, "Failed to install update: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    public void shutdown() {
+        executor.shutdown();
     }
 
     public String getCurrentVersion() {

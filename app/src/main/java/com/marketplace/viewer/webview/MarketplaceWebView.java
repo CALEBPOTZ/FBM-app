@@ -6,6 +6,7 @@ import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
+import com.marketplace.viewer.BuildConfig;
 import com.marketplace.viewer.config.UserAgentConfig;
 
 /**
@@ -52,7 +53,7 @@ public final class MarketplaceWebView extends WebView {
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         
         // Security settings
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         
         // Media settings
         settings.setMediaPlaybackRequiresUserGesture(false);
@@ -81,8 +82,8 @@ public final class MarketplaceWebView extends WebView {
         // Hardware acceleration
         setLayerType(LAYER_TYPE_HARDWARE, null);
         
-        // Enable WebView debugging (allows Chrome DevTools inspection)
-        WebView.setWebContentsDebuggingEnabled(true);
+        // Enable WebView debugging only in debug builds
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
     }
 
     /**

@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -65,6 +66,35 @@ public class MainActivity extends AppCompatActivity {
             this::handleFilePickerResult
         );
         
+        // Setup back press handler
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                binding.webView.evaluateJavascript(
+                    "(function() { " +
+                    "if (window._marketplaceImageViewer) { " +
+                    "window._marketplaceImageViewer.remove(); " +
+                    "window._marketplaceImageViewer = null; " +
+                    "return 'closed'; " +
+                    "} return 'not_open'; " +
+                    "})()",
+                    result -> {
+                        if (result != null && result.contains("closed")) {
+                            return;
+                        }
+                        runOnUiThread(() -> {
+                            if (binding.webView.canGoBack()) {
+                                binding.webView.goBack();
+                            } else {
+                                setEnabled(false);
+                                getOnBackPressedDispatcher().onBackPressed();
+                            }
+                        });
+                    }
+                );
+            }
+        });
+
         // Setup WebView
         setupWebView();
         
@@ -264,34 +294,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onBackPressed() {
-        // First, try to close the image viewer if it's open
-        binding.webView.evaluateJavascript(
-            "(function() { " +
-            "if (window._marketplaceImageViewer) { " +
-            "window._marketplaceImageViewer.remove(); " +
-            "window._marketplaceImageViewer = null; " +
-            "return 'closed'; " +
-            "} return 'not_open'; " +
-            "})()",
-            result -> {
-                if (result != null && result.contains("closed")) {
-                    // Image viewer was closed, don't go back
-                    return;
-                }
-                // No image viewer, handle normal back navigation
-                runOnUiThread(() -> {
-                    if (binding.webView.canGoBack()) {
-                        binding.webView.goBack();
-                    } else {
-                        super.onBackPressed();
-                    }
-                });
-            }
-        );
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
         binding.webView.onResume();
@@ -306,6 +308,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (updateChecker != null) {
+            updateChecker.shutdown();
+        }
         binding.webView.destroy();
     }
 

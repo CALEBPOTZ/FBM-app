@@ -395,14 +395,14 @@ public final class JsInjectorFixed {
             
             "img.addEventListener('touchend', function(e) {" +
             "if (touchMoved || (Date.now() - touchStartTime) > 300) return;" +
-            
+
             "e.preventDefault();" +
             "e.stopPropagation();" +
             "var images = findListingImages(img);" +
             "var index = images.indexOf(img.src);" +
             "if (index === -1) index = 0;" +
             "showImageViewer(images, index);" +
-            "});" +
+            "}, { passive: false });" +
             "});" +
             "}" +
             

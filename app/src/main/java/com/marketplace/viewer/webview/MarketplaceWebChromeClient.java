@@ -46,7 +46,8 @@ public class MarketplaceWebChromeClient extends WebChromeClient {
     public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
         Log.d(TAG, "Geolocation permission requested for: " + origin);
         if (callback != null) {
-            callback.invoke(origin, true, false);
+            boolean isFacebook = origin != null && (origin.contains("facebook.com") || origin.contains("fbcdn.net"));
+            callback.invoke(origin, isFacebook, false);
         }
     }
 
