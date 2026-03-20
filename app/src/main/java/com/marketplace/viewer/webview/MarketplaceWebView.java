@@ -1,6 +1,8 @@
 package com.marketplace.viewer.webview;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
 import android.util.AttributeSet;
 import android.webkit.CookieManager;
 import android.webkit.WebSettings;
@@ -114,5 +116,19 @@ public final class MarketplaceWebView extends WebView {
      */
     public static void enableDebugging(boolean enable) {
         WebView.setWebContentsDebuggingEnabled(enable);
+    }
+
+    /**
+     * Sets cache mode based on current network connectivity.
+     * Uses cached content when offline.
+     */
+    public void updateCacheMode() {
+        ConnectivityManager cm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        boolean isConnected = false;
+        if (cm != null) {
+            NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
+            isConnected = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        }
+        getSettings().setCacheMode(isConnected ? WebSettings.LOAD_DEFAULT : WebSettings.LOAD_CACHE_ELSE_NETWORK);
     }
 }

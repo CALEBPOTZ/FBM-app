@@ -85,14 +85,23 @@ public class MarketplaceWebViewClient extends WebViewClient {
     @Override
     public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
         super.onReceivedError(view, request, error);
-        
+
         if (request.isForMainFrame()) {
-            String errorMessage = "Error loading page";
+            String errorMessage;
             if (error != null) {
-                errorMessage = "Error " + error.getErrorCode() + ": " + error.getDescription();
+                int code = error.getErrorCode();
+                if (code == ERROR_HOST_LOOKUP || code == ERROR_CONNECT) {
+                    errorMessage = "No internet connection. Check your network and try again.";
+                } else if (code == ERROR_TIMEOUT) {
+                    errorMessage = "Connection timed out. Tap Retry to try again.";
+                } else {
+                    errorMessage = "Error " + code + ": " + error.getDescription();
+                }
+            } else {
+                errorMessage = "Error loading page";
             }
             Log.e(TAG, "Page load error: " + errorMessage);
-            
+
             if (callbacks != null) {
                 callbacks.onError(errorMessage);
             }

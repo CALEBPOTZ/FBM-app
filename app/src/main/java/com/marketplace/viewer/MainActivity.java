@@ -1,9 +1,12 @@
 package com.marketplace.viewer;
 
 import android.Manifest;
+import android.app.DownloadManager;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.webkit.JavascriptInterface;
@@ -72,6 +75,9 @@ public class MainActivity extends AppCompatActivity {
             public void handleOnBackPressed() {
                 binding.webView.evaluateJavascript(
                     "(function() { " +
+                    "if (window._marketplaceSideNavIsOpen && window._marketplaceSideNavIsOpen()) { " +
+                    "window._marketplaceSideNavClose(); return 'closed'; " +
+                    "} " +
                     "if (window._marketplaceImageViewer) { " +
                     "window._marketplaceImageViewer.remove(); " +
                     "window._marketplaceImageViewer = null; " +
@@ -95,9 +101,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Setup pull-to-refresh
+        binding.swipeRefresh.setColorSchemeColors(getColor(R.color.facebook_blue));
+        binding.swipeRefresh.setOnRefreshListener(() -> binding.webView.reload());
+
         // Setup WebView
         setupWebView();
-        
+
         // Setup retry button
         binding.retryButton.setOnClickListener(v -> loadMarketplace());
         
@@ -183,6 +193,36 @@ public class MainActivity extends AppCompatActivity {
         public String getAppVersion() {
             return updateChecker != null ? updateChecker.getCurrentVersion() : "Unknown";
         }
+
+        @JavascriptInterface
+        public void shareListing(String url, String title) {
+            runOnUiThread(() -> {
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("text/plain");
+                shareIntent.putExtra(Intent.EXTRA_SUBJECT, title != null ? title : "Check this out on Marketplace");
+                shareIntent.putExtra(Intent.EXTRA_TEXT, url);
+                startActivity(Intent.createChooser(shareIntent, "Share listing"));
+            });
+        }
+
+        @JavascriptInterface
+        public void saveImage(String imageUrl) {
+            runOnUiThread(() -> {
+                try {
+                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(imageUrl));
+                    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_PICTURES,
+                        "Marketplace/IMG_" + System.currentTimeMillis() + ".jpg");
+                    request.setMimeType("image/jpeg");
+                    DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                    dm.enqueue(request);
+                    Toast.makeText(MainActivity.this, "Image saved to Pictures/Marketplace", Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error saving image", e);
+                    Toast.makeText(MainActivity.this, "Failed to save image", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     private void requestLocationPermissionIfNeeded() {
@@ -208,6 +248,7 @@ public class MainActivity extends AppCompatActivity {
     private void loadMarketplace() {
         Log.d(TAG, "Loading Marketplace");
         showLoading();
+        binding.webView.updateCacheMode();
         binding.webView.loadUrl(UrlConfig.MARKETPLACE_URL);
     }
 
@@ -228,6 +269,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "Page load complete: " + url);
         runOnUiThread(() -> {
             hideLoading();
+            binding.swipeRefresh.setRefreshing(false);
             
             if (UrlConfig.isMarketplaceUrl(url) || url.contains("facebook.com")) {
                 if (jsInjector != null) {
@@ -255,6 +297,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void handleError(String error) {
         Log.e(TAG, "Error: " + error);
+        runOnUiThread(() -> binding.swipeRefresh.setRefreshing(false));
         runOnUiThread(() -> showError(error));
     }
 

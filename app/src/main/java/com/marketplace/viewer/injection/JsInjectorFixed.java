@@ -4,6 +4,8 @@ import android.util.Log;
 import android.webkit.ValueCallback;
 import android.webkit.WebView;
 
+import com.marketplace.viewer.BuildConfig;
+
 public final class JsInjectorFixed {
     private static final String TAG = "JsInjector";
     private final WebView webView;
@@ -27,7 +29,13 @@ public final class JsInjectorFixed {
 
     private String buildEnhancementScript() {
         return "(function() {" +
-            "console.log('Marketplace enhancements loading...');" +
+            "window._mpDebug = " + BuildConfig.DEBUG + ";" +
+            "window._mpDebug && console.log('Marketplace enhancements loading...');" +
+            // Cleanup observers on page unload
+            "window.addEventListener('beforeunload', function() {" +
+            "if (window._marketplaceImageObserver) window._marketplaceImageObserver.disconnect();" +
+            "if (window._marketplaceTextareaObserver) window._marketplaceTextareaObserver.disconnect();" +
+            "});" +
             "var style = document.createElement('style');" +
             "style.id = 'marketplace-enhancements';" +
             "style.textContent = `" +
@@ -39,11 +47,12 @@ public final class JsInjectorFixed {
             "[data-testid*=\"app-banner\"], [data-testid*=\"download-banner\"] { display: none !important; }" +
             "[aria-label*=\"Create post\"], [aria-label*=\"Create a post\"], [aria-label*=\"Stories\"] { display: none !important; }" +
             "body { background-color: #f0f2f5 !important; }" +
+            "@media (prefers-color-scheme: dark) { body { background-color: #18191a !important; } }" +
             "`;" +
             "if (!document.getElementById('marketplace-enhancements')) {" +
             "document.head.appendChild(style);" +
             "}" +
-            "console.log('Marketplace enhancements applied');" +
+            "window._mpDebug && console.log('Marketplace enhancements applied');" +
             "})();";
     }
 
@@ -53,7 +62,7 @@ public final class JsInjectorFixed {
             "try {" +
             "if (window._scrollFixAdded) return;" +
             "window._scrollFixAdded = true;" +
-            "console.log('Scroll fix loading...');" +
+            "window._mpDebug && console.log('Scroll fix loading...');" +
             
             // CSS to fix scrolling on both main page and dialogs
             "var style = document.createElement('style');" +
@@ -74,9 +83,9 @@ public final class JsInjectorFixed {
             "`;" +
             "if (!document.getElementById('marketplace-scroll-fix')) { document.head.appendChild(style); }" +
             
-            "console.log('Scroll fix applied');" +
-            "console.log('To debug: Open chrome://inspect in Chrome desktop, select this WebView');" +
-            "} catch(e) { console.log('Scroll fix error:', e); }" +
+            "window._mpDebug && console.log('Scroll fix applied');" +
+            "window._mpDebug && console.log('To debug: Open chrome://inspect in Chrome desktop, select this WebView');" +
+            "} catch(e) { window._mpDebug && console.log('Scroll fix error:', e); }" +
             "})();";
         
         executeJavaScript(script);
@@ -87,7 +96,7 @@ public final class JsInjectorFixed {
         executeJavaScript("(function() {" +
             "delete window.ReactNativeWebView;" +
             "delete window.__REACT_DEVTOOLS_GLOBAL_HOOK__;" +
-            "console.log('Anti-detection applied');" +
+            "window._mpDebug && console.log('Anti-detection applied');" +
             "})();");
     }
 
@@ -112,7 +121,7 @@ public final class JsInjectorFixed {
             "try {" +
             "if (window._imageEnhancementsAdded) return;" +
             "window._imageEnhancementsAdded = true;" +
-            "console.log('Image enhancements loading...');" +
+            "window._mpDebug && console.log('Image enhancements loading...');" +
             
             "var imageStyle = document.createElement('style');" +
             "imageStyle.id = 'marketplace-image-enhancements';" +
@@ -185,6 +194,18 @@ public final class JsInjectorFixed {
             "var closeBtn = document.createElement('div');" +
             "closeBtn.className = 'marketplace-image-viewer-close';" +
             "closeBtn.innerHTML = '&times;';" +
+
+            "var downloadBtn = document.createElement('div');" +
+            "downloadBtn.className = 'marketplace-image-viewer-close';" +
+            "downloadBtn.style.right = '80px';" +
+            "downloadBtn.innerHTML = '&#8615;';" +
+            "downloadBtn.addEventListener('click', function(e) {" +
+            "e.preventDefault(); e.stopPropagation();" +
+            "var src = window._marketplaceImages[window._marketplaceImageIndex];" +
+            "if (typeof MarketplaceApp !== 'undefined' && MarketplaceApp.saveImage) {" +
+            "MarketplaceApp.saveImage(src);" +
+            "}" +
+            "});" +
             
             "var controls = document.createElement('div');" +
             "controls.className = 'marketplace-image-controls';" +
@@ -192,6 +213,7 @@ public final class JsInjectorFixed {
             
             "viewer.appendChild(img);" +
             "viewer.appendChild(closeBtn);" +
+            "viewer.appendChild(downloadBtn);" +
             "viewer.appendChild(controls);" +
             
             // Add navigation buttons if multiple images
@@ -272,7 +294,7 @@ public final class JsInjectorFixed {
             "var clickedSrc = clickedImg.src;" +
             "var clickedW = clickedImg.offsetWidth || clickedImg.naturalWidth || 0;" +
             "var clickedH = clickedImg.offsetHeight || clickedImg.naturalHeight || 0;" +
-            "console.log('Finding listing images, clicked size:', clickedW, 'x', clickedH);" +
+            "window._mpDebug && console.log('Finding listing images, clicked size:', clickedW, 'x', clickedH);" +
 
             // Walk up from clicked image to find the FIRST scroll/carousel container
             // Stop early - don't go past the product image area
@@ -286,7 +308,7 @@ public final class JsInjectorFixed {
             "var hasSnap = cs.scrollSnapType && cs.scrollSnapType !== 'none';" +
             "if (isScrollable || hasSnap) {" +
             "carousel = parent;" +
-            "console.log('Found carousel at level', i);" +
+            "window._mpDebug && console.log('Found carousel at level', i);" +
             "break;" +
             "}" +
             "parent = parent.parentElement;" +
@@ -327,7 +349,7 @@ public final class JsInjectorFixed {
             "images.unshift(clickedSrc);" +
             "}" +
 
-            "console.log('Found', images.length, 'listing images');" +
+            "window._mpDebug && console.log('Found', images.length, 'listing images');" +
             "return images;" +
             "}" +
             
@@ -409,14 +431,17 @@ public final class JsInjectorFixed {
             // Run on page load
             "attachImageClickHandlers();" +
             
-            // Watch for new images being added
+            // Watch for new images being added (debounced)
+            "var _imgDebounce = null;" +
             "var observer = new MutationObserver(function() {" +
-            "attachImageClickHandlers();" +
+            "clearTimeout(_imgDebounce);" +
+            "_imgDebounce = setTimeout(attachImageClickHandlers, 200);" +
             "});" +
             "observer.observe(document.body, { childList: true, subtree: true });" +
+            "window._marketplaceImageObserver = observer;" +
             
-            "console.log('Image enhancements applied');" +
-            "} catch(e) { console.log('Image enhancement error:', e); }" +
+            "window._mpDebug && console.log('Image enhancements applied');" +
+            "} catch(e) { window._mpDebug && console.log('Image enhancement error:', e); }" +
             "})();";
         
         executeJavaScript(script);
@@ -428,7 +453,7 @@ public final class JsInjectorFixed {
         String script = "(function() {" +
             "if (window._savedButtonAdded) return;" +
             "window._savedButtonAdded = true;" +
-            "console.log('Saved listings access loading...');" +
+            "window._mpDebug && console.log('Saved listings access loading...');" +
             
             "var savedPos = localStorage.getItem('marketplace_saved_button_pos');" +
             "var position = savedPos ? JSON.parse(savedPos) : { top: 70, left: 10 };" +
@@ -497,7 +522,7 @@ public final class JsInjectorFixed {
             "if (!document.querySelector('.marketplace-saved-fab')) { document.body.appendChild(savedButton); }" +
             "}, 2000);" +
             
-            "console.log('Saved listings access applied');" +
+            "window._mpDebug && console.log('Saved listings access applied');" +
             "})();";
         
         executeJavaScript(script);
@@ -509,7 +534,7 @@ public final class JsInjectorFixed {
         String script = "(function() {" +
             "if (window._searchEnterAdded) return;" +
             "window._searchEnterAdded = true;" +
-            "console.log('Search enter key support loading...');" +
+            "window._mpDebug && console.log('Search enter key support loading...');" +
             
             "document.addEventListener('keypress', function(e) {" +
             "if (e.key === 'Enter' || e.keyCode === 13) {" +
@@ -524,7 +549,7 @@ public final class JsInjectorFixed {
             "}" +
             "});" +
             
-            "console.log('Search enter key support applied');" +
+            "window._mpDebug && console.log('Search enter key support applied');" +
             "})();";
         
         executeJavaScript(script);
@@ -536,7 +561,7 @@ public final class JsInjectorFixed {
         String script = "(function() {" +
             "if (window._textareaFixAdded) return;" +
             "window._textareaFixAdded = true;" +
-            "console.log('Textarea fix loading...');" +
+            "window._mpDebug && console.log('Textarea fix loading...');" +
             
             "var textareaStyle = document.createElement('style');" +
             "textareaStyle.id = 'marketplace-textarea-fix';" +
@@ -566,7 +591,10 @@ public final class JsInjectorFixed {
             "textarea.style.height = Math.min(textarea.scrollHeight, 300) + 'px';" +
             "}" +
             
+            "var _taDebounce = null;" +
             "var observer = new MutationObserver(function(mutations) {" +
+            "clearTimeout(_taDebounce);" +
+            "_taDebounce = setTimeout(function() {" +
             "document.querySelectorAll('textarea').forEach(function(textarea) {" +
             "if (!textarea._autoResizeAdded) {" +
             "textarea._autoResizeAdded = true;" +
@@ -574,9 +602,11 @@ public final class JsInjectorFixed {
             "autoResizeTextarea(textarea);" +
             "}" +
             "});" +
+            "}, 200);" +
             "});" +
-            
+
             "observer.observe(document.body, { childList: true, subtree: true });" +
+            "window._marketplaceTextareaObserver = observer;" +
             
             "document.querySelectorAll('textarea').forEach(function(textarea) {" +
             "if (!textarea._autoResizeAdded) {" +
@@ -586,7 +616,7 @@ public final class JsInjectorFixed {
             "}" +
             "});" +
             
-            "console.log('Textarea fix applied');" +
+            "window._mpDebug && console.log('Textarea fix applied');" +
             "})();";
         
         executeJavaScript(script);
@@ -599,7 +629,7 @@ public final class JsInjectorFixed {
             "try {" +
             "if (window._scrollToTopAdded) return;" +
             "window._scrollToTopAdded = true;" +
-            "console.log('Scroll to top button loading...');" +
+            "window._mpDebug && console.log('Scroll to top button loading...');" +
             
             "var scrollStyle = document.createElement('style');" +
             "scrollStyle.id = 'marketplace-scroll-to-top';" +
@@ -652,8 +682,8 @@ public final class JsInjectorFixed {
             "checkScroll();" +
             "}, 1500);" +
             
-            "console.log('Scroll to top button applied');" +
-            "} catch(e) { console.log('Scroll to top error:', e); }" +
+            "window._mpDebug && console.log('Scroll to top button applied');" +
+            "} catch(e) { window._mpDebug && console.log('Scroll to top error:', e); }" +
             "})();";
         
         executeJavaScript(script);
@@ -666,7 +696,7 @@ public final class JsInjectorFixed {
             "try {" +
             "if (window._sideNavAdded) return;" +
             "window._sideNavAdded = true;" +
-            "console.log('Side navigation loading...');" +
+            "window._mpDebug && console.log('Side navigation loading...');" +
             
             "var navStyle = document.createElement('style');" +
             "navStyle.id = 'marketplace-side-nav';" +
@@ -748,6 +778,18 @@ public final class JsInjectorFixed {
             "transition: width 0.2s ease, opacity 0.2s ease !important;" +
             "}" +
             ".marketplace-swipe-indicator:active { width: 8px !important; opacity: 0.8 !important; }" +
+            "@media (prefers-color-scheme: dark) {" +
+            ".marketplace-side-nav { background: #242526 !important; }" +
+            ".marketplace-nav-search { border-color: #3a3b3c !important; }" +
+            ".marketplace-nav-search input { background: #3a3b3c !important; border-color: #3a3b3c !important; color: #e4e6eb !important; }" +
+            ".marketplace-nav-search input::placeholder { color: #b0b3b8 !important; }" +
+            ".marketplace-nav-item { color: #e4e6eb !important; }" +
+            ".marketplace-nav-item:active { background: #3a3b3c !important; }" +
+            ".marketplace-nav-item-icon { background: #3a3b3c !important; }" +
+            ".marketplace-nav-divider { background: #3a3b3c !important; }" +
+            ".marketplace-nav-footer { background: #242526 !important; border-color: #3a3b3c !important; }" +
+            ".marketplace-nav-version { color: #b0b3b8 !important; }" +
+            "}" +
             "`;" +
             "if (!document.getElementById('marketplace-side-nav')) { document.head.appendChild(navStyle); }" +
             
@@ -781,6 +823,7 @@ public final class JsInjectorFixed {
             "{ icon: '&#9733;', label: 'Saved Listings', url: 'https://www.facebook.com/marketplace/you/saved', action: null }," +
             "{ icon: '&#9776;', label: 'My Listings', url: 'https://www.facebook.com/marketplace/you/selling', action: null }," +
             "{ icon: '&#128269;', label: 'Saved Searches', url: 'https://www.facebook.com/marketplace/you/saved_searches', action: null }," +
+            "{ icon: '&#128279;', label: 'Share This Page', url: null, action: 'share' }," +
             "{ icon: '&#8635;', label: 'Check for Updates', url: null, action: 'checkUpdates' }" +
             "];" +
             
@@ -793,7 +836,11 @@ public final class JsInjectorFixed {
             "if (item.action === 'checkUpdates') {" +
             "if (typeof MarketplaceApp !== 'undefined' && MarketplaceApp.checkForUpdates) {" +
             "MarketplaceApp.checkForUpdates();" +
-            "} else { console.log('MarketplaceApp interface not available'); }" +
+            "}" +
+            "} else if (item.action === 'share') {" +
+            "if (typeof MarketplaceApp !== 'undefined' && MarketplaceApp.shareListing) {" +
+            "MarketplaceApp.shareListing(window.location.href, document.title || 'Marketplace Listing');" +
+            "}" +
             "} else if (item.url) { window.location.href = item.url; }" +
             "});" +
             "navItem.addEventListener('touchend', function(e) {" +
@@ -801,7 +848,11 @@ public final class JsInjectorFixed {
             "if (item.action === 'checkUpdates') {" +
             "if (typeof MarketplaceApp !== 'undefined' && MarketplaceApp.checkForUpdates) {" +
             "MarketplaceApp.checkForUpdates();" +
-            "} else { console.log('MarketplaceApp interface not available'); }" +
+            "}" +
+            "} else if (item.action === 'share') {" +
+            "if (typeof MarketplaceApp !== 'undefined' && MarketplaceApp.shareListing) {" +
+            "MarketplaceApp.shareListing(window.location.href, document.title || 'Marketplace Listing');" +
+            "}" +
             "} else if (item.url) { window.location.href = item.url; }" +
             "});" +
             "navItems.appendChild(navItem);" +
@@ -829,6 +880,9 @@ public final class JsInjectorFixed {
             // Functions to open/close nav
             "function openNav() { sideNav.classList.add('open'); overlay.classList.add('visible'); }" +
             "function closeNav() { sideNav.classList.remove('open'); overlay.classList.remove('visible'); }" +
+            // Expose globally for back button handling
+            "window._marketplaceSideNavClose = closeNav;" +
+            "window._marketplaceSideNavIsOpen = function() { return sideNav.classList.contains('open'); };" +
             
             // Close button handler
             "header.querySelector('.marketplace-nav-close').addEventListener('click', closeNav);" +
@@ -917,8 +971,8 @@ public final class JsInjectorFixed {
             "}" +
             "}, 1500);" +
             
-            "console.log('Side navigation applied');" +
-            "} catch(e) { console.log('Side navigation error:', e); }" +
+            "window._mpDebug && console.log('Side navigation applied');" +
+            "} catch(e) { window._mpDebug && console.log('Side navigation error:', e); }" +
             "})();";
         
         executeJavaScript(script);

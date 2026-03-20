@@ -70,6 +70,9 @@ dependencies {
     
     // Material Design
     implementation("com.google.android.material:material:1.11.0")
+
+    // SwipeRefreshLayout
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     
     // Lifecycle & ViewModel
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")

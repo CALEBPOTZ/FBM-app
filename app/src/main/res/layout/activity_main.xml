@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout android:layout_width="match_parent" android:layout_height="match_parent"
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
-    <com.marketplace.viewer.webview.MarketplaceWebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="0.0dip" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout android:id="@+id/swipeRefresh" android:layout_width="match_parent" android:layout_height="0.0dip" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent">
+        <com.marketplace.viewer.webview.MarketplaceWebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="match_parent" />
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
     <ProgressBar android:id="@+id/progressBar" android:visibility="gone" android:layout_width="match_parent" android:layout_height="4.0dip" android:progress="0" android:progressTint="@color/facebook_blue" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" style="?android:progressBarStyleHorizontal" />
     <LinearLayout android:gravity="center" android:orientation="vertical" android:id="@+id/loadingLayout" android:background="@color/white" android:visibility="visible" android:layout_width="match_parent" android:layout_height="match_parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent">
         <ProgressBar android:id="@+id/loadingSpinner" android:layout_width="48.0dip" android:layout_height="48.0dip" android:indeterminateTint="@color/facebook_blue" />
