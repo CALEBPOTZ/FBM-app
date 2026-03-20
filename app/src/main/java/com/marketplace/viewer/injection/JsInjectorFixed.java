@@ -269,86 +269,56 @@ public final class JsInjectorFixed {
             "function findListingImages(clickedImg) {" +
             "var images = [];" +
             "var seen = {};" +
-            "console.log('Finding listing images...');" +
-            
-            // Get the clicked image src
             "var clickedSrc = clickedImg.src;" +
-            "var clickedWidth = clickedImg.offsetWidth || clickedImg.naturalWidth || 0;" +
-            "var clickedHeight = clickedImg.offsetHeight || clickedImg.naturalHeight || 0;" +
-            "console.log('Clicked image size:', clickedWidth, 'x', clickedHeight);" +
-            
-            // Strategy 1: Look for carousel container
-            "var carouselContainer = null;" +
+            "var clickedW = clickedImg.offsetWidth || clickedImg.naturalWidth || 0;" +
+            "var clickedH = clickedImg.offsetHeight || clickedImg.naturalHeight || 0;" +
+            "console.log('Finding listing images, clicked size:', clickedW, 'x', clickedH);" +
+
+            // Walk up from clicked image to find the FIRST scroll/carousel container
+            // Stop early - don't go past the product image area
+            "var carousel = null;" +
             "var parent = clickedImg.parentElement;" +
-            "for (var i = 0; i < 15 && parent; i++) {" +
-            "var style = window.getComputedStyle(parent);" +
-            "var hasHScroll = parent.scrollWidth > parent.clientWidth + 10;" +
-            "var isFlexRow = style.display === 'flex' && (style.flexDirection === 'row' || style.flexDirection === '');" +
-            "var hasSnapScroll = style.scrollSnapType && style.scrollSnapType !== 'none';" +
-            "var hasNavArrows = parent.querySelector('[aria-label*=\"Next\"]') || parent.querySelector('[aria-label*=\"Previous\"]');" +
-            
-            "if (hasHScroll || hasSnapScroll || hasNavArrows || (isFlexRow && parent.children.length > 1)) {" +
-            "carouselContainer = parent;" +
-            "console.log('Found potential carousel at level', i);" +
+            "for (var i = 0; i < 8 && parent; i++) {" +
+            "if (parent.getAttribute && parent.getAttribute('role') === 'main') break;" +
+            "var cs = window.getComputedStyle(parent);" +
+            "var ox = cs.overflowX;" +
+            "var isScrollable = (ox === 'auto' || ox === 'scroll' || ox === 'hidden') && parent.scrollWidth > parent.clientWidth + 20;" +
+            "var hasSnap = cs.scrollSnapType && cs.scrollSnapType !== 'none';" +
+            "if (isScrollable || hasSnap) {" +
+            "carousel = parent;" +
+            "console.log('Found carousel at level', i);" +
             "break;" +
             "}" +
             "parent = parent.parentElement;" +
             "}" +
-            
-            "if (carouselContainer) {" +
-            "var carouselImgs = carouselContainer.querySelectorAll('img');" +
+
+            // Collect images from the carousel container only
+            "if (carousel) {" +
+            "var carouselImgs = carousel.querySelectorAll('img');" +
             "for (var j = 0; j < carouselImgs.length; j++) {" +
             "var img = carouselImgs[j];" +
-            "var src = img.src;" +
-            "if (!src || !src.includes('scontent')) continue;" +
-            "if (seen[src]) continue;" +
-            "var w = img.offsetWidth || img.naturalWidth || 0;" +
-            "var h = img.offsetHeight || img.naturalHeight || 0;" +
-            "if (w < 80 || h < 80) continue;" +
-            
-            // STRICTER RATIO CHECK to avoid ads
-            "var clickedRatio = clickedWidth / (clickedHeight || 1);" +
-            "var imgRatio = w / (h || 1);" +
-            "var ratioDiff = Math.abs(clickedRatio - imgRatio);" +
-            "if (clickedWidth > 100 && ratioDiff > 0.5) { continue; }" +
-            
-            "images.push(src);" +
-            "seen[src] = true;" +
-            "}" +
-            "}" +
-            
-            // Strategy 2: Fallback (Strict nearby search)
-            "if (images.length <= 1) {" +
-            "console.log('Fallback: searching nearby parents...');" +
-            "images = [];" +
-            "seen = {};" +
-            "if (clickedSrc && clickedSrc.includes('scontent')) {" +
-            "images.push(clickedSrc);" +
-            "seen[clickedSrc] = true;" +
-            "}" +
-            "var container = clickedImg.parentElement;" +
-            // REDUCED DEPTH from 6 to 3 to avoid grabbing outside elements
-            "for (var i = 0; i < 3 && container; i++) {" +
-            "var imgs = container.querySelectorAll('img');" +
-            "for (var j = 0; j < imgs.length; j++) {" +
-            "var img = imgs[j];" +
             "var src = img.src;" +
             "if (!src || !src.includes('scontent') || seen[src]) continue;" +
             "var w = img.offsetWidth || img.naturalWidth || 0;" +
             "var h = img.offsetHeight || img.naturalHeight || 0;" +
-            "if (w < 100 || h < 100) continue;" +
-            "var sizeDiffW = Math.abs(w - clickedWidth) / (clickedWidth || 1);" +
-            "var sizeDiffH = Math.abs(h - clickedHeight) / (clickedHeight || 1);" +
-            "if (clickedWidth > 100 && (sizeDiffW > 0.5 || sizeDiffH > 0.5)) continue;" +
+            "if (w < 150 || h < 150) continue;" +
+            // Must be similar size to clicked image (within 40%)
+            "if (clickedW > 100) {" +
+            "var wDiff = Math.abs(w - clickedW) / clickedW;" +
+            "var hDiff = Math.abs(h - clickedH) / (clickedH || 1);" +
+            "if (wDiff > 0.4 || hDiff > 0.4) continue;" +
+            "}" +
             "images.push(src);" +
             "seen[src] = true;" +
             "}" +
-            "container = container.parentElement;" +
-            "if (images.length >= 3) break;" +
             "}" +
+
+            // Fallback: just the clicked image
+            "if (images.length === 0 && clickedSrc) {" +
+            "images.push(clickedSrc);" +
             "}" +
-            
-            // Ensure clicked image is first
+
+            // Ensure clicked image is at the front
             "var clickedIndex = images.indexOf(clickedSrc);" +
             "if (clickedIndex > 0) {" +
             "images.splice(clickedIndex, 1);" +
@@ -356,7 +326,7 @@ public final class JsInjectorFixed {
             "} else if (clickedIndex === -1 && clickedSrc) {" +
             "images.unshift(clickedSrc);" +
             "}" +
-            
+
             "console.log('Found', images.length, 'listing images');" +
             "return images;" +
             "}" +
@@ -364,31 +334,61 @@ public final class JsInjectorFixed {
             // Use MutationObserver to attach click handlers to listing images dynamically
             "function attachImageClickHandlers() {" +
             "var url = window.location.href;" +
-            "if (!url.includes('/marketplace/item/') && !url.includes('/product/')) return;" +
-            
+            "var isListingPage = url.includes('/marketplace/item/') || url.includes('/product/');" +
+            "var isMarketplace = url.includes('/marketplace');" +
+            "if (!isMarketplace) return;" +
+
             "document.querySelectorAll('img').forEach(function(img) {" +
             "if (img._imageHandlerAttached) return;" +
             "if (!img.src || !img.src.includes('scontent')) return;" +
-            
+
             "var w = img.offsetWidth || img.naturalWidth || 0;" +
             "var h = img.offsetHeight || img.naturalHeight || 0;" +
+
+            // Homepage: make listing images navigate to the listing
+            "if (!isListingPage) {" +
+            "if (w < 80 || h < 80) return;" +
+            "img._imageHandlerAttached = true;" +
+            // Find nearest <a> ancestor linking to a listing
+            "var link = null;" +
+            "var el = img;" +
+            "for (var i = 0; i < 10 && el; i++) {" +
+            "if (el.tagName === 'A' && el.href && el.href.includes('/marketplace/item/')) {" +
+            "link = el; break;" +
+            "}" +
+            "el = el.parentElement;" +
+            "}" +
+            "if (!link) return;" + // No listing link found, skip
+            "img.style.cursor = 'pointer';" +
+            "img.addEventListener('click', function(e) {" +
+            "e.stopPropagation();" +
+            "window.location.href = link.href;" +
+            "}, { passive: false });" +
+            "return;" + // Don't add fullscreen handler on homepage
+            "}" +
+
+            // Listing detail page: open fullscreen viewer on tap
             "if (w < 200 || h < 200) return;" + // Skip small images/thumbnails
             
             "img._imageHandlerAttached = true;" +
             
             // Track touch for this specific image
+            "var touchStartX = 0;" +
             "var touchStartY = 0;" +
             "var touchStartTime = 0;" +
             "var touchMoved = false;" +
-            
+
             "img.addEventListener('touchstart', function(e) {" +
+            "touchStartX = e.touches[0].clientX;" +
             "touchStartY = e.touches[0].clientY;" +
             "touchStartTime = Date.now();" +
             "touchMoved = false;" +
             "}, { passive: true });" +
-            
+
             "img.addEventListener('touchmove', function(e) {" +
-            "if (Math.abs(e.touches[0].clientY - touchStartY) > 10) {" +
+            "var dx = Math.abs(e.touches[0].clientX - touchStartX);" +
+            "var dy = Math.abs(e.touches[0].clientY - touchStartY);" +
+            "if (dx > 10 || dy > 10) {" +
             "touchMoved = true;" +
             "}" +
             "}, { passive: true });" +
