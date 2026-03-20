@@ -43,7 +43,8 @@ public class UpdateChecker {
     private static final String PREFS_NAME = "update_prefs";
     private static final String KEY_SKIPPED_VERSION = "skipped_version";
     private static final String KEY_LAST_CHECK = "last_check";
-    private static final long CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+    private static final String KEY_LAST_CHECK_VERSION = "last_check_version";
+    private static final long CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
     private final Context context;
     private final ExecutorService executor;
@@ -81,7 +82,11 @@ public class UpdateChecker {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         long lastCheck = prefs.getLong(KEY_LAST_CHECK, 0);
         
-        if (!force && System.currentTimeMillis() - lastCheck < CHECK_INTERVAL) {
+        // Force check if app version changed since last check (fresh install/update)
+        String lastCheckVersion = prefs.getString(KEY_LAST_CHECK_VERSION, "");
+        boolean versionChanged = !BuildConfig.VERSION_NAME.equals(lastCheckVersion);
+
+        if (!force && !versionChanged && System.currentTimeMillis() - lastCheck < CHECK_INTERVAL) {
             Log.d(TAG, "Skipping update check - too recent");
             if (callback != null) {
                 mainHandler.post(() -> callback.onNoUpdateAvailable());
@@ -208,8 +213,11 @@ public class UpdateChecker {
             boolean isUpdateAvailable = !latestVersion.equals(currentVersion) && isNewer(latestVersion, currentVersion);
             Log.d(TAG, "Update available: " + isUpdateAvailable);
 
-            // Save last check time
-            prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply();
+            // Save last check time and version
+            prefs.edit()
+                .putLong(KEY_LAST_CHECK, System.currentTimeMillis())
+                .putString(KEY_LAST_CHECK_VERSION, currentVersion)
+                .apply();
             
             if (isUpdateAvailable) {
                 String finalDownloadUrl = downloadUrl;
