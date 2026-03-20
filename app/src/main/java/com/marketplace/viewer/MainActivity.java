@@ -297,6 +297,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         binding.webView.onResume();
+        // Retry pending update download if install permission was just granted
+        if (updateChecker != null) {
+            updateChecker.retryPendingInstallIfReady();
+        }
     }
 
     @Override

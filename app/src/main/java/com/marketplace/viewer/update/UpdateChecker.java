@@ -52,6 +52,8 @@ public class UpdateChecker {
     private ProgressBar downloadProgressBar;
     private TextView downloadMessage;
     private UpdateCallback callback;
+    private String pendingDownloadUrl;
+    private String pendingDownloadVersion;
 
     public interface UpdateCallback {
         void onUpdateCheckComplete(boolean updateAvailable, String version);
@@ -139,10 +141,14 @@ public class UpdateChecker {
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
+            connection.setRequestProperty("User-Agent", "FBM-app/" + BuildConfig.VERSION_NAME);
             connection.setConnectTimeout(10000);
             connection.setReadTimeout(10000);
 
             int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                Log.e(TAG, "GitHub API returned HTTP " + responseCode);
+            }
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
                     StringBuilder response = new StringBuilder();
@@ -240,14 +246,16 @@ public class UpdateChecker {
         
         try {
             if (latest.contains("-")) {
-                String[] latestParts = latest.split("-");
-                if (latestParts.length >= 2) {
-                    String latestTimestamp = latestParts[1];
-                    
+                // Version format: 1.0.0-YYYYMMDD-HHMMSS
+                // Extract full timestamp by joining all parts after the base version
+                int latestDash = latest.indexOf("-");
+                if (latestDash > 0) {
+                    String latestTimestamp = latest.substring(latestDash + 1); // "20260320-143022"
+
                     if (current.contains("-")) {
-                        String[] currentParts = current.split("-");
-                        if (currentParts.length >= 2) {
-                            String currentTimestamp = currentParts[1];
+                        int currentDash = current.indexOf("-");
+                        if (currentDash > 0) {
+                            String currentTimestamp = current.substring(currentDash + 1); // "20260202-191436"
                             boolean newer = latestTimestamp.compareTo(currentTimestamp) > 0;
                             Log.d(TAG, "Timestamp comparison: " + latestTimestamp + " vs " + currentTimestamp + " = " + newer);
                             return newer;
@@ -305,6 +313,8 @@ public class UpdateChecker {
                 if (canInstallApks()) {
                     downloadAndInstallApk(downloadUrl, version);
                 } else {
+                    pendingDownloadUrl = downloadUrl;
+                    pendingDownloadVersion = version;
                     requestInstallPermission();
                 }
             });
@@ -483,6 +493,20 @@ public class UpdateChecker {
         } catch (Exception e) {
             Log.e(TAG, "Error installing APK", e);
             Toast.makeText(context, "Failed to install update: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * Call from Activity.onResume() to retry a pending download
+     * after the user returns from install permission settings.
+     */
+    public void retryPendingInstallIfReady() {
+        if (pendingDownloadUrl != null && canInstallApks()) {
+            String url = pendingDownloadUrl;
+            String version = pendingDownloadVersion;
+            pendingDownloadUrl = null;
+            pendingDownloadVersion = null;
+            downloadAndInstallApk(url, version);
         }
     }
 
