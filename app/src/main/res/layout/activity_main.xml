@@ -14,4 +14,8 @@
         <TextView android:textSize="14.0sp" android:textColor="@color/gray_dark" android:gravity="center" android:id="@+id/errorMessage" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8.0dip" />
         <com.google.android.material.button.MaterialButton android:id="@+id/retryButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="24.0dip" android:text="@string/retry" android:backgroundTint="@color/facebook_blue" />
     </LinearLayout>
+    <FrameLayout android:id="@+id/overlayContainer" android:background="@color/white" android:visibility="gone" android:layout_width="match_parent" android:layout_height="match_parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent">
+        <com.marketplace.viewer.webview.MarketplaceWebView android:id="@+id/overlayWebView" android:layout_width="match_parent" android:layout_height="match_parent" />
+        <ProgressBar android:id="@+id/overlayProgress" android:visibility="gone" android:layout_width="match_parent" android:layout_height="4.0dip" android:progress="0" android:progressTint="@color/facebook_blue" style="?android:progressBarStyleHorizontal" android:layout_gravity="top" />
+    </FrameLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

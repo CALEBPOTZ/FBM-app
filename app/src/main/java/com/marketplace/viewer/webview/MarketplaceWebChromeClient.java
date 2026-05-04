@@ -1,12 +1,15 @@
 package com.marketplace.viewer.webview;
 
 import android.net.Uri;
+import android.os.Message;
 import android.util.Log;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JsResult;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 public class MarketplaceWebChromeClient extends WebChromeClient {
     private static final String TAG = "MarketplaceWebChromeClient";
@@ -73,5 +76,22 @@ public class MarketplaceWebChromeClient extends WebChromeClient {
     public void onConsoleMessage(String message, int lineNumber, String sourceID) {
         Log.d(TAG, "Console: " + message + " (line " + lineNumber + ")");
         super.onConsoleMessage(message, lineNumber, sourceID);
+    }
+
+    @Override
+    public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+        WebView trampoline = new WebView(view.getContext());
+        trampoline.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
+                view.loadUrl(request.getUrl().toString());
+                v.destroy();
+                return true;
+            }
+        });
+        WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+        transport.setWebView(trampoline);
+        resultMsg.sendToTarget();
+        return true;
     }
 }

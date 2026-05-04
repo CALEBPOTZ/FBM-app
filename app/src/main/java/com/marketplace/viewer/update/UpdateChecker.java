@@ -241,6 +241,11 @@ public class UpdateChecker {
 
         } catch (Exception e) {
             Log.e(TAG, "Error parsing release", e);
+            if (isManualCheck) {
+                final String errMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                mainHandler.post(() -> Toast.makeText(context,
+                    "Update check failed: " + errMsg, Toast.LENGTH_LONG).show());
+            }
         }
     }
 
@@ -269,7 +274,7 @@ public class UpdateChecker {
                             return newer;
                         }
                     }
-                    Log.d(TAG, "Current has no timestamp, latest is newer");
+                    Log.d(TAG, "Current has no timestamp (likely a local build), treating remote as newer");
                     return true;
                 }
             }
@@ -389,10 +394,17 @@ public class UpdateChecker {
                 URL url = new URL(downloadUrl);
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
+                connection.setRequestProperty("User-Agent", "FBM-app/" + BuildConfig.VERSION_NAME);
+                connection.setRequestProperty("Accept", "application/octet-stream");
                 connection.setInstanceFollowRedirects(true);
                 connection.setConnectTimeout(30000);
                 connection.setReadTimeout(30000);
                 connection.connect();
+
+                int responseCode = connection.getResponseCode();
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    throw new Exception("Download failed: HTTP " + responseCode);
+                }
 
                 int fileLength = connection.getContentLength();
                 

@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.widget.Toast;
@@ -41,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private CustomTabsAuthLauncher customTabsLauncher;
     private MessengerDeepLinker messengerDeepLinker;
     private JsInjectorFixed jsInjector;
+    private JsInjectorFixed overlayJsInjector;
     private UpdateChecker updateChecker;
     private ValueCallback<Uri[]> filePathCallback;
     private ActivityResultLauncher<String> filePickerLauncher;
@@ -73,6 +76,31 @@ public class MainActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                if (binding.overlayContainer.getVisibility() == View.VISIBLE) {
+                    binding.overlayWebView.evaluateJavascript(
+                        "(function() { " +
+                        "if (window._marketplaceImageViewer) { " +
+                        "window._marketplaceImageViewer.remove(); " +
+                        "window._marketplaceImageViewer = null; " +
+                        "return 'closed'; " +
+                        "} return 'not_open'; " +
+                        "})()",
+                        result -> {
+                            if (result != null && result.contains("closed")) {
+                                return;
+                            }
+                            runOnUiThread(() -> {
+                                if (binding.overlayWebView.canGoBack()) {
+                                    binding.overlayWebView.goBack();
+                                } else {
+                                    closeOverlay();
+                                }
+                            });
+                        }
+                    );
+                    return;
+                }
+
                 binding.webView.evaluateJavascript(
                     "(function() { " +
                     "if (window._marketplaceSideNavIsOpen && window._marketplaceSideNavIsOpen()) { " +
@@ -89,8 +117,14 @@ public class MainActivity extends AppCompatActivity {
                             return;
                         }
                         runOnUiThread(() -> {
+                            String currentUrl = binding.webView.getUrl();
+                            boolean isListingDetail = currentUrl != null
+                                && (currentUrl.contains("/marketplace/item/") || currentUrl.contains("/product/"));
+
                             if (binding.webView.canGoBack()) {
                                 binding.webView.goBack();
+                            } else if (isListingDetail) {
+                                binding.webView.loadUrl(UrlConfig.MARKETPLACE_URL);
                             } else {
                                 setEnabled(false);
                                 getOnBackPressedDispatcher().onBackPressed();
@@ -103,7 +137,13 @@ public class MainActivity extends AppCompatActivity {
 
         // Setup pull-to-refresh
         binding.swipeRefresh.setColorSchemeColors(getColor(R.color.facebook_blue));
-        binding.swipeRefresh.setOnRefreshListener(() -> binding.webView.reload());
+        binding.swipeRefresh.setOnRefreshListener(() -> {
+            binding.webView.evaluateJavascript(
+                "try { sessionStorage.setItem('mp_skip_restore', '1'); } catch(e) {}",
+                null
+            );
+            binding.webView.reload();
+        });
 
         // Setup WebView
         setupWebView();
@@ -168,11 +208,100 @@ public class MainActivity extends AppCompatActivity {
 
         binding.webView.setWebViewClient(new MarketplaceWebViewClient(webViewCallbacks));
         binding.webView.setWebChromeClient(new MarketplaceWebChromeClient(chromeCallbacks));
-        
+
         // Add JavaScript interface for native features
         binding.webView.addJavascriptInterface(new AppInterface(), "MarketplaceApp");
-        
+
+        setupOverlayWebView();
         requestLocationPermissionIfNeeded();
+    }
+
+    private void setupOverlayWebView() {
+        MarketplaceWebViewClient.Callbacks overlayCallbacks = new MarketplaceWebViewClient.Callbacks() {
+            @Override
+            public void onLoginRequired() {
+                handleLoginRequired();
+            }
+
+            @Override
+            public void onMessengerLink(String url) {
+                handleMessengerLink(url);
+            }
+
+            @Override
+            public void onPageLoadComplete(String url) {
+                Log.d(TAG, "Overlay page load complete: " + url);
+                runOnUiThread(() -> {
+                    binding.overlayProgress.setVisibility(View.GONE);
+                    if (UrlConfig.isMarketplaceUrl(url) || url.contains("facebook.com")) {
+                        if (overlayJsInjector != null) {
+                            overlayJsInjector.injectAntiDetection();
+                            if (UrlConfig.isMarketplaceUrl(url)) {
+                                overlayJsInjector.injectOverlayEnhancements();
+                            }
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Overlay error: " + error);
+                runOnUiThread(() -> binding.overlayProgress.setVisibility(View.GONE));
+            }
+        };
+
+        MarketplaceWebChromeClient.Callbacks overlayChromeCallbacks = new MarketplaceWebChromeClient.Callbacks() {
+            @Override
+            public void onProgressChanged(int progress) {
+                runOnUiThread(() -> {
+                    binding.overlayProgress.setProgress(progress);
+                    binding.overlayProgress.setVisibility(progress < 100 ? View.VISIBLE : View.GONE);
+                });
+            }
+
+            @Override
+            public boolean onFileChooser(ValueCallback<Uri[]> callback, String[] acceptTypes) {
+                return handleFileChooser(callback, acceptTypes);
+            }
+        };
+
+        binding.overlayWebView.setWebViewClient(new MarketplaceWebViewClient(overlayCallbacks));
+        binding.overlayWebView.setWebChromeClient(new MarketplaceWebChromeClient(overlayChromeCallbacks));
+        binding.overlayWebView.addJavascriptInterface(new AppInterface(), "MarketplaceApp");
+        overlayJsInjector = new JsInjectorFixed(binding.overlayWebView, true);
+    }
+
+    private void openListingInOverlay(String url) {
+        if (url == null || url.isEmpty()) return;
+        Log.d(TAG, "Opening listing in overlay: " + url);
+        binding.overlayProgress.setProgress(0);
+        binding.overlayProgress.setVisibility(View.VISIBLE);
+        binding.overlayWebView.loadUrl(url);
+        if (binding.overlayContainer.getVisibility() != View.VISIBLE) {
+            binding.overlayContainer.setVisibility(View.VISIBLE);
+            Animation slideIn = AnimationUtils.loadAnimation(this, R.anim.slide_in_right);
+            binding.overlayContainer.startAnimation(slideIn);
+        }
+    }
+
+    private void closeOverlay() {
+        Log.d(TAG, "Closing overlay");
+        if (binding.overlayContainer.getVisibility() != View.VISIBLE) {
+            return;
+        }
+        Animation slideOut = AnimationUtils.loadAnimation(this, R.anim.slide_out_right);
+        slideOut.setAnimationListener(new Animation.AnimationListener() {
+            @Override public void onAnimationStart(Animation animation) {}
+            @Override public void onAnimationRepeat(Animation animation) {}
+            @Override
+            public void onAnimationEnd(Animation animation) {
+                binding.overlayContainer.setVisibility(View.GONE);
+                binding.overlayProgress.setVisibility(View.GONE);
+                binding.overlayWebView.loadUrl("about:blank");
+            }
+        });
+        binding.overlayContainer.startAnimation(slideOut);
     }
 
     /**
@@ -192,6 +321,11 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public String getAppVersion() {
             return updateChecker != null ? updateChecker.getCurrentVersion() : "Unknown";
+        }
+
+        @JavascriptInterface
+        public void openListing(String url) {
+            runOnUiThread(() -> openListingInOverlay(url));
         }
 
         @JavascriptInterface
@@ -340,6 +474,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         binding.webView.onResume();
+        binding.overlayWebView.onResume();
         // Retry pending update download if install permission was just granted
         if (updateChecker != null) {
             updateChecker.retryPendingInstallIfReady();
@@ -350,6 +485,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         binding.webView.onPause();
+        binding.overlayWebView.onPause();
     }
 
     @Override
@@ -358,6 +494,7 @@ public class MainActivity extends AppCompatActivity {
         if (updateChecker != null) {
             updateChecker.shutdown();
         }
+        binding.overlayWebView.destroy();
         binding.webView.destroy();
     }
 
