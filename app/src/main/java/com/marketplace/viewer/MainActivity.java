@@ -13,6 +13,7 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
+import android.webkit.WebBackForwardList;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -44,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private MessengerDeepLinker messengerDeepLinker;
     private JsInjectorFixed jsInjector;
     private JsInjectorFixed overlayJsInjector;
-    private boolean overlayClearHistoryOnLoad;
+    private int overlaySessionBaseIndex = -1;
     private UpdateChecker updateChecker;
     private ValueCallback<Uri[]> filePathCallback;
     private ActivityResultLauncher<String> filePickerLauncher;
@@ -91,7 +92,9 @@ public class MainActivity extends AppCompatActivity {
                                 return;
                             }
                             runOnUiThread(() -> {
-                                if (binding.overlayWebView.canGoBack()) {
+                                WebBackForwardList list = binding.overlayWebView.copyBackForwardList();
+                                int idx = list.getCurrentIndex();
+                                if (idx > overlaySessionBaseIndex && binding.overlayWebView.canGoBack()) {
                                     binding.overlayWebView.goBack();
                                 } else {
                                     closeOverlay();
@@ -234,9 +237,10 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "Overlay page load complete: " + url);
                 runOnUiThread(() -> {
                     binding.overlayProgress.setVisibility(View.GONE);
-                    if (overlayClearHistoryOnLoad) {
-                        overlayClearHistoryOnLoad = false;
-                        binding.overlayWebView.clearHistory();
+                    if (overlaySessionBaseIndex == -1) {
+                        WebBackForwardList list = binding.overlayWebView.copyBackForwardList();
+                        overlaySessionBaseIndex = list.getCurrentIndex();
+                        Log.d(TAG, "Overlay session base index: " + overlaySessionBaseIndex);
                     }
                     if (UrlConfig.isMarketplaceUrl(url) || url.contains("facebook.com")) {
                         if (overlayJsInjector != null) {
@@ -282,7 +286,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "Opening listing in overlay: " + url);
         boolean wasHidden = binding.overlayContainer.getVisibility() != View.VISIBLE;
         if (wasHidden) {
-            overlayClearHistoryOnLoad = true;
+            overlaySessionBaseIndex = -1;
         }
         binding.overlayProgress.setProgress(0);
         binding.overlayProgress.setVisibility(View.VISIBLE);
