@@ -44,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private MessengerDeepLinker messengerDeepLinker;
     private JsInjectorFixed jsInjector;
     private JsInjectorFixed overlayJsInjector;
+    private boolean overlayClearHistoryOnLoad;
     private UpdateChecker updateChecker;
     private ValueCallback<Uri[]> filePathCallback;
     private ActivityResultLauncher<String> filePickerLauncher;
@@ -233,6 +234,10 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "Overlay page load complete: " + url);
                 runOnUiThread(() -> {
                     binding.overlayProgress.setVisibility(View.GONE);
+                    if (overlayClearHistoryOnLoad) {
+                        overlayClearHistoryOnLoad = false;
+                        binding.overlayWebView.clearHistory();
+                    }
                     if (UrlConfig.isMarketplaceUrl(url) || url.contains("facebook.com")) {
                         if (overlayJsInjector != null) {
                             overlayJsInjector.injectAntiDetection();
@@ -275,10 +280,14 @@ public class MainActivity extends AppCompatActivity {
     private void openListingInOverlay(String url) {
         if (url == null || url.isEmpty()) return;
         Log.d(TAG, "Opening listing in overlay: " + url);
+        boolean wasHidden = binding.overlayContainer.getVisibility() != View.VISIBLE;
+        if (wasHidden) {
+            overlayClearHistoryOnLoad = true;
+        }
         binding.overlayProgress.setProgress(0);
         binding.overlayProgress.setVisibility(View.VISIBLE);
         binding.overlayWebView.loadUrl(url);
-        if (binding.overlayContainer.getVisibility() != View.VISIBLE) {
+        if (wasHidden) {
             binding.overlayContainer.setVisibility(View.VISIBLE);
             Animation slideIn = AnimationUtils.loadAnimation(this, R.anim.slide_in_right);
             binding.overlayContainer.startAnimation(slideIn);
@@ -298,7 +307,6 @@ public class MainActivity extends AppCompatActivity {
             public void onAnimationEnd(Animation animation) {
                 binding.overlayContainer.setVisibility(View.GONE);
                 binding.overlayProgress.setVisibility(View.GONE);
-                binding.overlayWebView.loadUrl("about:blank");
             }
         });
         binding.overlayContainer.startAnimation(slideOut);
