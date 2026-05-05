@@ -16,6 +16,7 @@
     </LinearLayout>
     <FrameLayout android:id="@+id/overlayContainer" android:background="@color/white" android:visibility="gone" android:layout_width="match_parent" android:layout_height="match_parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent">
         <com.marketplace.viewer.webview.MarketplaceWebView android:id="@+id/overlayWebView" android:layout_width="match_parent" android:layout_height="match_parent" />
+        <ProgressBar android:id="@+id/overlayLoadingSpinner" android:visibility="gone" android:layout_width="48.0dip" android:layout_height="48.0dip" android:indeterminateTint="@color/facebook_blue" android:layout_gravity="center" />
         <ProgressBar android:id="@+id/overlayProgress" android:visibility="gone" android:layout_width="match_parent" android:layout_height="4.0dip" android:progress="0" android:progressTint="@color/facebook_blue" style="?android:progressBarStyleHorizontal" android:layout_gravity="top" />
     </FrameLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

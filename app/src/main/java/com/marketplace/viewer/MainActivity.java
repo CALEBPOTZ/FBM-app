@@ -237,6 +237,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "Overlay page load complete: " + url);
                 runOnUiThread(() -> {
                     binding.overlayProgress.setVisibility(View.GONE);
+                    binding.overlayLoadingSpinner.setVisibility(View.GONE);
                     if (overlaySessionBaseIndex == -1) {
                         WebBackForwardList list = binding.overlayWebView.copyBackForwardList();
                         overlaySessionBaseIndex = list.getCurrentIndex();
@@ -259,7 +260,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onError(String error) {
                 Log.e(TAG, "Overlay error: " + error);
-                runOnUiThread(() -> binding.overlayProgress.setVisibility(View.GONE));
+                runOnUiThread(() -> {
+                    binding.overlayProgress.setVisibility(View.GONE);
+                    binding.overlayLoadingSpinner.setVisibility(View.GONE);
+                });
             }
         };
 
@@ -291,6 +295,7 @@ public class MainActivity extends AppCompatActivity {
         if (wasHidden) {
             overlaySessionBaseIndex = -1;
             binding.overlayWebView.setAlpha(0f);
+            binding.overlayLoadingSpinner.setVisibility(View.VISIBLE);
         }
         binding.overlayProgress.setProgress(0);
         binding.overlayProgress.setVisibility(View.VISIBLE);
@@ -315,6 +320,7 @@ public class MainActivity extends AppCompatActivity {
             public void onAnimationEnd(Animation animation) {
                 binding.overlayContainer.setVisibility(View.GONE);
                 binding.overlayProgress.setVisibility(View.GONE);
+                binding.overlayLoadingSpinner.setVisibility(View.GONE);
             }
         });
         binding.overlayContainer.startAnimation(slideOut);
