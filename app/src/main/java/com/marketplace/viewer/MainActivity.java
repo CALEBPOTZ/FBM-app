@@ -242,6 +242,9 @@ public class MainActivity extends AppCompatActivity {
                         overlaySessionBaseIndex = list.getCurrentIndex();
                         Log.d(TAG, "Overlay session base index: " + overlaySessionBaseIndex);
                     }
+                    if (binding.overlayWebView.getAlpha() < 1f) {
+                        binding.overlayWebView.animate().alpha(1f).setDuration(150).start();
+                    }
                     if (UrlConfig.isMarketplaceUrl(url) || url.contains("facebook.com")) {
                         if (overlayJsInjector != null) {
                             overlayJsInjector.injectAntiDetection();
@@ -287,6 +290,7 @@ public class MainActivity extends AppCompatActivity {
         boolean wasHidden = binding.overlayContainer.getVisibility() != View.VISIBLE;
         if (wasHidden) {
             overlaySessionBaseIndex = -1;
+            binding.overlayWebView.setAlpha(0f);
         }
         binding.overlayProgress.setProgress(0);
         binding.overlayProgress.setVisibility(View.VISIBLE);
