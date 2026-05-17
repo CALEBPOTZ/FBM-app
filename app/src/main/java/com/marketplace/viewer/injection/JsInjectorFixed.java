@@ -29,7 +29,9 @@ public final class JsInjectorFixed {
 
     public void injectMarketplaceEnhancements() {
         Log.d(TAG, "Injecting marketplace enhancements (overlay=" + isOverlay + ")");
+        runAsset("js/preconnect.js");
         runAsset("js/enhancements.js");
+        runAsset("js/feed-grid-fix.js");
         runAsset("js/scroll-fix.js");
         runAsset("js/image-viewer.js");
         runAsset("js/textarea-fix.js");
