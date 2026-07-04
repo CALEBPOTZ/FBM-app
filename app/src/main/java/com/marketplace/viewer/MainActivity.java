@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.webkit.JavascriptInterface;
@@ -31,6 +32,7 @@ import com.marketplace.viewer.injection.JsInjectorFixed;
 import com.marketplace.viewer.messenger.MessengerDeepLinker;
 import com.marketplace.viewer.update.UpdateChecker;
 import com.marketplace.viewer.webview.MarketplaceWebChromeClient;
+import com.marketplace.viewer.webview.MarketplaceWebView;
 import com.marketplace.viewer.webview.MarketplaceWebViewClient;
 
 import java.util.List;
@@ -49,6 +51,8 @@ public class MainActivity extends AppCompatActivity {
     private UpdateChecker updateChecker;
     private ValueCallback<Uri[]> filePathCallback;
     private ActivityResultLauncher<String> filePickerLauncher;
+    private boolean webViewsDestroyed = false;
+    private boolean earlyInterceptorInjected = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -121,17 +125,17 @@ public class MainActivity extends AppCompatActivity {
                             return;
                         }
                         runOnUiThread(() -> {
-                            String currentUrl = binding.webView.getUrl();
-                            boolean isListingDetail = currentUrl != null
-                                && (currentUrl.contains("/marketplace/item/") || currentUrl.contains("/product/"));
-
+                            // Only exit the app from the marketplace root. Anything
+                            // else without history (e.g. a listing that loaded in the
+                            // main WebView because the tap wasn't intercepted) goes
+                            // back to the feed instead of exiting.
                             if (binding.webView.canGoBack()) {
                                 binding.webView.goBack();
-                            } else if (isListingDetail) {
-                                binding.webView.loadUrl(UrlConfig.MARKETPLACE_URL);
-                            } else {
+                            } else if (isMarketplaceRoot(binding.webView.getUrl())) {
                                 setEnabled(false);
                                 getOnBackPressedDispatcher().onBackPressed();
+                            } else {
+                                binding.webView.loadUrl(UrlConfig.MARKETPLACE_URL);
                             }
                         });
                     }
@@ -194,6 +198,11 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onError(String error) {
                 handleError(error);
+            }
+
+            @Override
+            public void onRenderProcessGone() {
+                recoverFromRendererCrash();
             }
         };
 
@@ -265,6 +274,11 @@ public class MainActivity extends AppCompatActivity {
                     binding.overlayLoadingSpinner.setVisibility(View.GONE);
                 });
             }
+
+            @Override
+            public void onRenderProcessGone() {
+                recoverFromRendererCrash();
+            }
         };
 
         MarketplaceWebChromeClient.Callbacks overlayChromeCallbacks = new MarketplaceWebChromeClient.Callbacks() {
@@ -305,6 +319,40 @@ public class MainActivity extends AppCompatActivity {
             Animation slideIn = AnimationUtils.loadAnimation(this, R.anim.slide_in_right);
             binding.overlayContainer.startAnimation(slideIn);
         }
+    }
+
+    /**
+     * Recovers from the shared WebView renderer process dying (usually OOM).
+     * The dead WebViews must be detached and destroyed before the activity is
+     * rebuilt, otherwise the system would kill the whole app.
+     */
+    private void recoverFromRendererCrash() {
+        if (webViewsDestroyed) return;
+        webViewsDestroyed = true;
+        Log.e(TAG, "WebView renderer died - rebuilding activity");
+        runOnUiThread(() -> {
+            detachAndDestroy(binding.overlayWebView);
+            detachAndDestroy(binding.webView);
+            recreate();
+        });
+    }
+
+    private void detachAndDestroy(MarketplaceWebView webView) {
+        ViewGroup parent = (ViewGroup) webView.getParent();
+        if (parent != null) {
+            parent.removeView(webView);
+        }
+        webView.destroy();
+    }
+
+    private static boolean isMarketplaceRoot(String url) {
+        if (url == null) return true;
+        String path = Uri.parse(url).getPath();
+        if (path == null) return true;
+        while (path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return path.isEmpty() || path.equalsIgnoreCase("/marketplace");
     }
 
     private void closeOverlay() {
@@ -448,6 +496,19 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             binding.progressBar.setProgress(progress);
             binding.progressBar.setVisibility(progress < 100 ? View.VISIBLE : View.GONE);
+
+            // Facebook's onPageFinished can lag many seconds behind the feed
+            // becoming tappable; inject the listing interceptor early so taps
+            // in that window still open the overlay instead of navigating the
+            // main WebView. The script is idempotent, so the full injection at
+            // page-finish is unaffected.
+            if (progress < 30) {
+                earlyInterceptorInjected = false;
+            } else if (progress >= 60 && !earlyInterceptorInjected
+                    && UrlConfig.isMarketplaceUrl(binding.webView.getUrl())) {
+                earlyInterceptorInjected = true;
+                jsInjector.injectListingInterceptor();
+            }
         });
     }
 
@@ -495,8 +556,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        binding.webView.onResume();
-        binding.overlayWebView.onResume();
+        if (!webViewsDestroyed) {
+            binding.webView.onResume();
+            binding.overlayWebView.onResume();
+        }
         // Retry pending update download if install permission was just granted
         if (updateChecker != null) {
             updateChecker.retryPendingInstallIfReady();
@@ -506,8 +569,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        binding.webView.onPause();
-        binding.overlayWebView.onPause();
+        if (!webViewsDestroyed) {
+            binding.webView.onPause();
+            binding.overlayWebView.onPause();
+        }
     }
 
     @Override
@@ -516,8 +581,11 @@ public class MainActivity extends AppCompatActivity {
         if (updateChecker != null) {
             updateChecker.shutdown();
         }
-        binding.overlayWebView.destroy();
-        binding.webView.destroy();
+        if (!webViewsDestroyed) {
+            webViewsDestroyed = true;
+            binding.overlayWebView.destroy();
+            binding.webView.destroy();
+        }
     }
 
     @Override

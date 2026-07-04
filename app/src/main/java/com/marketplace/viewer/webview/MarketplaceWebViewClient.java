@@ -2,6 +2,7 @@ package com.marketplace.viewer.webview;
 
 import android.graphics.Bitmap;
 import android.util.Log;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
@@ -20,6 +21,7 @@ public class MarketplaceWebViewClient extends WebViewClient {
         void onMessengerLink(String url);
         void onPageLoadComplete(String url);
         void onError(String error);
+        void onRenderProcessGone();
     }
 
     public MarketplaceWebViewClient(Callbacks callbacks) {
@@ -106,6 +108,17 @@ public class MarketplaceWebViewClient extends WebViewClient {
                 callbacks.onError(errorMessage);
             }
         }
+    }
+
+    @Override
+    public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+        // Without this override, Android kills the whole app when the shared
+        // WebView renderer process dies (e.g. OOM with two Facebook pages loaded).
+        Log.e(TAG, "Render process gone (didCrash=" + (detail != null && detail.didCrash()) + ")");
+        if (callbacks != null) {
+            callbacks.onRenderProcessGone();
+        }
+        return true;
     }
 
     @Override

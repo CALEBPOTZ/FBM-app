@@ -53,6 +53,10 @@ public final class JsInjectorFixed {
         runAsset("js/anti-detection.js");
     }
 
+    public void injectListingInterceptor() {
+        runAsset("js/listing-interceptor.js");
+    }
+
     public void injectCustomScript(String script) {
         Log.d(TAG, "Injecting custom script");
         webView.evaluateJavascript(script, null);

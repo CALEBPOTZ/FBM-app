@@ -16,9 +16,16 @@
   // and doesn't match other flex containers (category carousels, nav, etc.).
   //
   // Fix: force each non-<style> child to exactly 50% width.
+  //
+  // Infinite scroll appends new children to containers we've already fixed,
+  // so matched containers are remembered and re-fixed on every scan; only
+  // individual children are marked done. FB's SPA can also replace the
+  // [role="main"] node, orphaning the MutationObserver — ensureObserver()
+  // re-attaches whenever the node changes.
 
-  function fixContainer(el) {
-    if (!el || el._mpFeedFixed) return false;
+  var matchedContainers = new WeakSet();
+
+  function looksLikeFeedContainer(el) {
     var cs = window.getComputedStyle(el);
     if (cs.display !== 'flex') return false;
     if (cs.flexWrap !== 'wrap') return false;
@@ -36,32 +43,41 @@
     if (styleCount < 2 || divCount < 2) return false;
     if (Math.abs(styleCount - divCount) > 1) return false;
     if (linkCount < 1) return false;
+    return true;
+  }
 
+  function fixChildren(el) {
+    var fixed = 0;
     for (var i = 0; i < el.children.length; i++) {
       var c = el.children[i];
       if (c.tagName === 'STYLE') continue;
+      if (c._mpFeedItemFixed) continue;
       c.style.flex = '0 0 calc(50% - 4px)';
       c.style.maxWidth = 'calc(50% - 4px)';
       c.style.minWidth = '0';
+      c._mpFeedItemFixed = true;
+      fixed++;
     }
-    el.style.gap = '8px';
-    el._mpFeedFixed = true;
-    return true;
+    if (!el._mpFeedGapSet) {
+      el.style.gap = '8px';
+      el._mpFeedGapSet = true;
+    }
+    return fixed;
   }
 
   function scan() {
     var main = document.querySelector('[role="main"]');
     if (!main) return 0;
+    ensureObserver(main);
     var count = 0;
     main.querySelectorAll('div').forEach(function(el) {
-      if (fixContainer(el)) count++;
+      if (matchedContainers.has(el) || looksLikeFeedContainer(el)) {
+        matchedContainers.add(el);
+        count += fixChildren(el);
+      }
     });
     return count;
   }
-
-  setTimeout(scan, 500);
-  setTimeout(scan, 1500);
-  setTimeout(scan, 3000);
 
   var pending = false;
   var observer = new MutationObserver(function() {
@@ -72,12 +88,25 @@
       scan();
     });
   });
-  function startObserver() {
-    var main = document.querySelector('[role="main"]');
-    if (!main) { setTimeout(startObserver, 500); return; }
+
+  var observedMain = null;
+  function ensureObserver(main) {
+    if (observedMain === main) return;
+    observer.disconnect();
     observer.observe(main, { childList: true, subtree: true });
+    observedMain = main;
   }
-  startObserver();
+
+  setTimeout(scan, 500);
+  setTimeout(scan, 1500);
+  setTimeout(scan, 3000);
+
+  // Safety net: if the SPA swaps [role="main"] the observer goes quiet;
+  // notice the swap and rescan (which also re-attaches the observer).
+  setInterval(function() {
+    var main = document.querySelector('[role="main"]');
+    if (main && main !== observedMain) scan();
+  }, 2000);
 
   window._mpRescanFeed = scan;
 
