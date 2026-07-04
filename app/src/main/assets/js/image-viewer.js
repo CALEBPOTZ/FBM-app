@@ -157,29 +157,143 @@
         }
       });
 
-      var touchStartX = 0;
-      var touchStartY = 0;
-      var touchEndX = 0;
+      // --- pinch-zoom / pan / swipe / double-tap gestures ---
+      // transform = translate(tx,ty) scale(s), origin at the image centre,
+      // which coincides with the viewport centre (flex-centered viewer).
+      var scale = 1, tx = 0, ty = 0;
+      var MIN_SCALE = 1, MAX_SCALE = 5;
 
-      img.addEventListener('touchstart', function(e) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
+      function applyTransform() {
+        img.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+      }
+      function resetZoom() {
+        scale = 1; tx = 0; ty = 0;
+        applyTransform();
+      }
+      viewer._resetZoom = resetZoom;
+
+      function clampPan() {
+        var bx = Math.max(0, (img.offsetWidth * scale - viewer.clientWidth) / 2);
+        var by = Math.max(0, (img.offsetHeight * scale - viewer.clientHeight) / 2);
+        tx = Math.min(bx, Math.max(-bx, tx));
+        ty = Math.min(by, Math.max(-by, ty));
+      }
+
+      function touchDist(t) {
+        var dx = t[0].clientX - t[1].clientX;
+        var dy = t[0].clientY - t[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      var mode = null; // 'swipe' | 'pan' | 'pinch'
+      var startX = 0, startY = 0, startTx = 0, startTy = 0;
+      var pinchStartDist = 0, pinchStartScale = 1;
+      var lastTapTime = 0, lastTapX = 0, lastTapY = 0;
+      var gestureMoved = false;
+
+      viewer.addEventListener('touchstart', function(e) {
+        img.style.transition = '';
+        if (e.touches.length === 2) {
+          mode = 'pinch';
+          gestureMoved = true;
+          pinchStartDist = touchDist(e.touches);
+          pinchStartScale = scale;
+          startTx = tx; startTy = ty;
+        } else if (e.touches.length === 1) {
+          mode = scale > 1 ? 'pan' : 'swipe';
+          gestureMoved = false;
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          startTx = tx; startTy = ty;
+        }
       }, { passive: true });
 
-      img.addEventListener('touchend', function(e) {
-        touchEndX = e.changedTouches[0].clientX;
-        var diffX = touchStartX - touchEndX;
-        var diffY = Math.abs(touchStartY - e.changedTouches[0].clientY);
-        if (Math.abs(diffX) > 50 && diffY < 100 && (images.length > 1 || window._marketplaceCarouselNav)) {
-          if (diffX > 0) navigateImage(1);
-          else navigateImage(-1);
+      viewer.addEventListener('touchmove', function(e) {
+        if (mode === 'pinch' && e.touches.length === 2) {
+          e.preventDefault();
+          var mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - viewer.clientWidth / 2;
+          var my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - viewer.clientHeight / 2;
+          var newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE,
+            pinchStartScale * touchDist(e.touches) / pinchStartDist));
+          // keep the image point under the pinch midpoint fixed
+          tx = mx - (mx - startTx) * (newScale / pinchStartScale);
+          ty = my - (my - startTy) * (newScale / pinchStartScale);
+          scale = newScale;
+          applyTransform();
+        } else if (mode === 'pan' && e.touches.length === 1) {
+          e.preventDefault();
+          tx = startTx + (e.touches[0].clientX - startX);
+          ty = startTy + (e.touches[0].clientY - startY);
+          clampPan();
+          applyTransform();
+          if (Math.abs(e.touches[0].clientX - startX) > 10
+            || Math.abs(e.touches[0].clientY - startY) > 10) gestureMoved = true;
+        } else if (mode === 'swipe' && e.touches.length === 1) {
+          if (Math.abs(e.touches[0].clientX - startX) > 10
+            || Math.abs(e.touches[0].clientY - startY) > 10) gestureMoved = true;
         }
+      }, { passive: false });
+
+      viewer.addEventListener('touchend', function(e) {
+        if (e.touches.length > 0) {
+          if (e.touches.length === 1) {
+            // one pinch finger lifted — continue as pan with a fresh baseline
+            mode = scale > 1 ? 'pan' : 'swipe';
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            startTx = tx; startTy = ty;
+            gestureMoved = true;
+          }
+          return;
+        }
+
+        if (mode === 'pinch') {
+          if (scale < 1.05) resetZoom();
+          else { clampPan(); applyTransform(); }
+          mode = null;
+          return;
+        }
+
+        var endX = e.changedTouches[0].clientX;
+        var endY = e.changedTouches[0].clientY;
+
+        if (mode === 'swipe' && gestureMoved) {
+          var diffX = startX - endX;
+          var diffY = Math.abs(startY - endY);
+          if (Math.abs(diffX) > 50 && diffY < 100 && (images.length > 1 || window._marketplaceCarouselNav)) {
+            navigateImage(diffX > 0 ? 1 : -1);
+          }
+        } else if (!gestureMoved && e.target === img) {
+          // double-tap on the image toggles zoom around the tap point
+          var now = Date.now();
+          if (now - lastTapTime < 300 && Math.abs(endX - lastTapX) < 40 && Math.abs(endY - lastTapY) < 40) {
+            lastTapTime = 0;
+            img.style.transition = 'transform 0.18s ease-out';
+            if (scale > 1) {
+              resetZoom();
+            } else {
+              scale = 2.5;
+              tx = (endX - viewer.clientWidth / 2) * (1 - scale);
+              ty = (endY - viewer.clientHeight / 2) * (1 - scale);
+              clampPan();
+              applyTransform();
+            }
+          } else {
+            lastTapTime = now; lastTapX = endX; lastTapY = endY;
+          }
+        } else if (mode === 'pan') {
+          clampPan();
+          applyTransform();
+        }
+        mode = null;
       }, { passive: true });
 
       document.body.appendChild(viewer);
     }
 
     function navigateImage(dir) {
+      var v = window._marketplaceImageViewer;
+      if (v && v._resetZoom) v._resetZoom();
       var nav = window._marketplaceCarouselNav;
       if (nav) {
         var btn = dir > 0 ? nav.next : nav.prev;
